@@ -5,8 +5,8 @@ from __future__ import annotations
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers import entity_registry as er
 
 from .api import EdfTempoClient
 from .const import CONF_CLIENT_ID, CONF_CLIENT_SECRET, DATA_COORDINATOR, DOMAIN
@@ -16,6 +16,7 @@ from .season_cache import EdfTempoSeasonCache
 from .websocket_api import async_register as async_register_websocket
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:

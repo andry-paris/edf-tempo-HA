@@ -124,11 +124,13 @@ Après le redémarrage :
 
 L’intégration vérifie les identifiants et commence ensuite à récupérer les informations Tempo. Une seule configuration EDF Tempo est nécessaire par installation Home Assistant.
 
+La configuration s’effectue exclusivement depuis l’interface de Home Assistant : aucune configuration YAML n’est nécessaire.
+
 ## Ajouter les cartes visuelles
 
 Les cartes sont installées et enregistrées automatiquement avec l’intégration. Après le redémarrage de Home Assistant, actualisez votre navigateur puis ajoutez la carte EDF Tempo souhaitée depuis l’éditeur du tableau de bord.
 
-Si vos ressources Lovelace sont gérées manuellement en mode YAML, ajoutez `/edf_tempo/card.js?v=1.2.2` comme module JavaScript dans votre configuration.
+Si vos ressources Lovelace sont gérées manuellement en mode YAML, ajoutez `/edf_tempo/card.js?v=1.2.3` comme module JavaScript dans votre configuration.
 
 ## Données et confidentialité
 

@@ -97,6 +97,14 @@ def install() -> None:
     helpers = types.ModuleType("homeassistant.helpers")
     sys.modules["homeassistant.helpers"] = helpers
 
+    config_validation = types.ModuleType("homeassistant.helpers.config_validation")
+
+    def config_entry_only_config_schema(domain):
+        return {"config_entry_only": domain}
+
+    config_validation.config_entry_only_config_schema = config_entry_only_config_schema
+    sys.modules["homeassistant.helpers.config_validation"] = config_validation
+
     aiohttp_client = types.ModuleType("homeassistant.helpers.aiohttp_client")
 
     def async_get_clientsession(hass):

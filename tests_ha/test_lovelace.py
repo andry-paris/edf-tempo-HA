@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from homeassistant.components.lovelace.const import LOVELACE_DATA
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -21,6 +20,8 @@ from custom_components.edf_tempo.const import (
 )
 from custom_components.edf_tempo.coordinator import EdfTempoDataUpdateCoordinator
 from custom_components.edf_tempo.frontend import CARD_RESOURCE_URL
+
+LOVELACE_DATA = "lovelace"
 
 MOCK_DATA = TempoCalendarData(
     today=TempoDayData("2026-07-27", "BLUE", "Blue", False, None),
@@ -59,7 +60,12 @@ async def test_lovelace_resource_is_served_and_not_duplicated(
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-        resources = hass.data[LOVELACE_DATA].resources
+        lovelace_data = hass.data[LOVELACE_DATA]
+        resources = (
+            lovelace_data["resources"]
+            if isinstance(lovelace_data, dict)
+            else lovelace_data.resources
+        )
         await resources.async_get_info()
         matching_resources = [
             resource

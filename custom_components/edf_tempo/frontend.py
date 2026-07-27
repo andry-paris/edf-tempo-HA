@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 
 from homeassistant.components.http import StaticPathConfig
-from homeassistant.components.lovelace.const import LOVELACE_DATA, MODE_STORAGE
+from homeassistant.components.lovelace.const import MODE_STORAGE
 from homeassistant.core import HomeAssistant
 
 from .const import (
@@ -18,7 +18,24 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+LOVELACE_DATA = "lovelace"
 CARD_RESOURCE_URL = f"{CARD_URL_PATH}?v={INTEGRATION_VERSION}"
+
+
+def _get_storage_resources(hass: HomeAssistant):
+    """Return Lovelace storage resources across supported HA versions."""
+    lovelace_data = hass.data.get(LOVELACE_DATA)
+    if lovelace_data is None:
+        return None
+
+    if isinstance(lovelace_data, dict):
+        if lovelace_data.get("mode") != MODE_STORAGE:
+            return None
+        return lovelace_data.get("resources")
+
+    if lovelace_data.resource_mode != MODE_STORAGE:
+        return None
+    return lovelace_data.resources
 
 
 async def async_register_frontend(hass: HomeAssistant) -> None:
@@ -28,19 +45,10 @@ async def async_register_frontend(hass: HomeAssistant) -> None:
         [StaticPathConfig(CARD_URL_PATH, str(card_path), False)]
     )
 
-    lovelace_data = hass.data.get(LOVELACE_DATA)
-    if lovelace_data is None:
+    resources = _get_storage_resources(hass)
+    if resources is None:
         _LOGGER.warning("Lovelace is unavailable; EDF Tempo cards were not registered")
         return
-
-    if lovelace_data.resource_mode != MODE_STORAGE:
-        _LOGGER.info(
-            "Lovelace resources use YAML mode; add %s as a module manually",
-            CARD_RESOURCE_URL,
-        )
-        return
-
-    resources = lovelace_data.resources
     await resources.async_get_info()
 
     for resource in resources.async_items():
@@ -63,11 +71,10 @@ async def async_register_frontend(hass: HomeAssistant) -> None:
 
 async def async_remove_frontend_resource(hass: HomeAssistant) -> None:
     """Remove EDF Tempo Lovelace resources after final entry removal."""
-    lovelace_data = hass.data.get(LOVELACE_DATA)
-    if lovelace_data is None or lovelace_data.resource_mode != MODE_STORAGE:
+    resources = _get_storage_resources(hass)
+    if resources is None:
         return
 
-    resources = lovelace_data.resources
     await resources.async_get_info()
     resource_ids = [
         resource["id"]

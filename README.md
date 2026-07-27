@@ -94,7 +94,7 @@ Les cartes s’adaptent au thème clair ou sombre de Home Assistant et disposent
 
 Vous avez besoin :
 
-- de Home Assistant 2025 ou d’une version plus récente ;
+- de Home Assistant 2025.1.0 ou d’une version plus récente ;
 - d’un accès Internet depuis Home Assistant ;
 - d’identifiants gratuits pour l’API Tempo de RTE.
 
@@ -128,15 +128,15 @@ La configuration s’effectue exclusivement depuis l’interface de Home Assista
 
 ## Ajouter les cartes visuelles
 
-Les cartes sont installées et enregistrées automatiquement avec l’intégration. Après le redémarrage de Home Assistant, actualisez votre navigateur puis ajoutez la carte EDF Tempo souhaitée depuis l’éditeur du tableau de bord.
+Les cartes sont installées et enregistrées automatiquement avec l’intégration. Après le redémarrage de Home Assistant, actualisez votre navigateur puis ajoutez la carte EDF Tempo souhaitée depuis l’éditeur du tableau de bord. La ressource Lovelace créée automatiquement est supprimée lors de la désinstallation définitive de l’intégration.
 
-Si vos ressources Lovelace sont gérées manuellement en mode YAML, ajoutez `/edf_tempo/card.js?v=1.2.4` comme module JavaScript dans votre configuration.
+Si vos ressources Lovelace sont gérées manuellement en mode YAML, ajoutez `/edf_tempo/card.js?v=1.2.5` comme module JavaScript dans votre configuration.
 
 ## Données et confidentialité
 
-Les couleurs Tempo proviennent de l’API officielle de RTE. Dans Home Assistant, l’appareil est donc présenté comme une intégration communautaire et son modèle indique explicitement RTE comme source des données. Les données des saisons consultées sont conservées localement par Home Assistant afin de réduire les demandes inutiles.
+Les couleurs Tempo proviennent de l’API officielle de RTE. Dans Home Assistant, l’appareil est donc présenté comme une intégration communautaire et son modèle indique explicitement RTE comme source des données. Les données des saisons consultées sont conservées localement par Home Assistant afin de réduire les demandes inutiles. Si ce cache devient incomplet ou illisible, l’intégration l’ignore et le reconstruit automatiquement depuis RTE.
 
-Les diagnostics masquent les identifiants et les jetons de connexion. Ne partagez néanmoins jamais vos identifiants RTE dans une capture d’écran, un journal ou un signalement de problème.
+Les diagnostics masquent les identifiants et les jetons de connexion. Le client secret est également affiché comme un mot de passe dans les formulaires et n’est jamais prérempli lors d’une reconfiguration : laissez ce champ vide pour conserver le secret actuel. Ne partagez néanmoins jamais vos identifiants RTE dans une capture d’écran, un journal ou un signalement de problème.
 
 ## Limites connues
 
@@ -153,7 +153,7 @@ Ce logiciel est fourni gratuitement, sans garantie et sans engagement d’assist
 
 ## Qualité et validation
 
-Chaque modification est contrôlée automatiquement avec HACS, Hassfest et les tests Python. Une suite complémentaire utilise les fixtures officielles de Home Assistant pour vérifier le cycle complet d’installation, de rechargement, de réauthentification et de désinstallation, ainsi que l’enregistrement des cartes dans Lovelace. Elle répète également les installations et désinstallations après renommage des entités afin de détecter les doublons et les entrées orphelines.
+Chaque modification est contrôlée automatiquement avec HACS, Hassfest et les tests Python et JavaScript. Les tests des cartes simulent notamment une navigation rapide entre plusieurs saisons pour vérifier que chaque calendrier demandé est chargé sans doublon. Une matrice exécute les tests d’intégration avec la version minimale prise en charge, Home Assistant 2025.1.0, et avec la version actuelle utilisée par le projet. Ces tests utilisent les fixtures officielles de Home Assistant pour vérifier le cycle complet d’installation, de rechargement, de réauthentification et de désinstallation, ainsi que l’enregistrement des cartes dans Lovelace. Ils répètent également les installations et désinstallations après renommage des entités afin de détecter les doublons et les entrées orphelines.
 
 Les outils utilisés par ces contrôles sont figés sur des versions précises afin de garantir des validations reproductibles. Dependabot surveille leurs mises à jour et propose automatiquement les évolutions disponibles.
 

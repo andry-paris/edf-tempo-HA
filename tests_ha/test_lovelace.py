@@ -83,3 +83,15 @@ async def test_lovelace_resource_is_served_and_not_duplicated(
             if resource["url"].split("?", 1)[0] == CARD_URL_PATH
         ]
         assert len(matching_resources) == 1
+
+        remove_result = await hass.config_entries.async_remove(entry.entry_id)
+        await hass.async_block_till_done()
+        assert remove_result == {"require_restart": False}
+
+        await resources.async_get_info()
+        matching_resources = [
+            resource
+            for resource in resources.async_items()
+            if resource["url"].split("?", 1)[0] == CARD_URL_PATH
+        ]
+        assert matching_resources == []

@@ -1223,10 +1223,10 @@ class EdfTempoSeasonCalendarCard extends HTMLElement {
     this._selectedSeasonStartYear = null;
     this._currentSeasonStartYear = this._computeCurrentSeasonStartYear();
     this._minSeasonStartYear = 2015;
-    this._loading = false;
+    this._pendingLoads = new Map();
+    this._loadErrors = new Map();
     this._seasonCache = new Map();
     this._seasonData = null;
-    this._error = null;
     this._responsiveColumns = null;
     this._resizeObserver = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect?.width;
@@ -1293,35 +1293,50 @@ class EdfTempoSeasonCalendarCard extends HTMLElement {
     return 12;
   }
 
-  async _ensureSeasonData(seasonStartYear) {
-    if (!this._hass || this._loading || this._seasonCache.has(seasonStartYear)) {
-      if (this._seasonCache.has(seasonStartYear)) {
+  _ensureSeasonData(seasonStartYear) {
+    if (!this._hass) {
+      return Promise.resolve(null);
+    }
+    if (this._seasonCache.has(seasonStartYear)) {
+      if (seasonStartYear === this._selectedSeasonStartYear) {
         this._seasonData = this._seasonCache.get(seasonStartYear);
       }
-      return;
+      return Promise.resolve(this._seasonCache.get(seasonStartYear));
+    }
+    const pendingLoad = this._pendingLoads.get(seasonStartYear);
+    if (pendingLoad) {
+      return pendingLoad;
     }
 
-    this._loading = true;
-    this._error = null;
-    this._render();
-
-    try {
-      const result = await this._hass.connection.sendMessagePromise({
-        type: "edf_tempo/get_season_calendar",
-        season_start_year: seasonStartYear,
+    this._loadErrors.delete(seasonStartYear);
+    const loadPromise = Promise.resolve()
+      .then(() =>
+        this._hass.connection.sendMessagePromise({
+          type: "edf_tempo/get_season_calendar",
+          season_start_year: seasonStartYear,
+        }),
+      )
+      .then((result) => {
+        this._currentSeasonStartYear = result.current_season_start_year;
+        this._minSeasonStartYear = result.min_season_start_year;
+        this._seasonCache.set(seasonStartYear, result);
+        if (seasonStartYear === this._selectedSeasonStartYear) {
+          this._seasonData = result;
+        }
+        return result;
+      })
+      .catch((err) => {
+        this._loadErrors.set(seasonStartYear, err?.message || "Failed to load season data");
+        return null;
+      })
+      .finally(() => {
+        this._pendingLoads.delete(seasonStartYear);
+        this._render();
       });
-      this._currentSeasonStartYear = result.current_season_start_year;
-      this._minSeasonStartYear = result.min_season_start_year;
-      this._seasonCache.set(seasonStartYear, result);
-      if (seasonStartYear === this._selectedSeasonStartYear) {
-        this._seasonData = result;
-      }
-    } catch (err) {
-      this._error = err?.message || "Failed to load season data";
-    } finally {
-      this._loading = false;
-      this._render();
-    }
+
+    this._pendingLoads.set(seasonStartYear, loadPromise);
+    this._render();
+    return loadPromise;
   }
 
   _render() {
@@ -1332,6 +1347,8 @@ class EdfTempoSeasonCalendarCard extends HTMLElement {
     const canGoPrevious = this._selectedSeasonStartYear > this._minSeasonStartYear;
     const canGoNext = this._selectedSeasonStartYear < this._currentSeasonStartYear;
     const model = this._buildCalendarModel();
+    const isLoading = this._pendingLoads.has(this._selectedSeasonStartYear);
+    const loadError = this._loadErrors.get(this._selectedSeasonStartYear);
 
     this.shadowRoot.innerHTML = `
       <style>
@@ -1521,10 +1538,10 @@ class EdfTempoSeasonCalendarCard extends HTMLElement {
             <button class="nav" data-action="next" ${canGoNext ? "" : "disabled"}>&rarr;</button>
           </div>
           ${
-            this._loading
+            isLoading
               ? `<div class="state">${this._escapeHtml(this._t("loading"))}</div>`
-              : this._error
-                ? `<div class="state">${this._escapeHtml(this._error)}</div>`
+              : loadError
+                ? `<div class="state">${this._escapeHtml(loadError)}</div>`
                 : `<div class="months">${model.monthsHtml}</div>`
           }
         </div>
@@ -1777,10 +1794,10 @@ class EdfTempoMonthCard extends HTMLElement {
     this._minMonth = { year: 2015, monthIndex: 8 };
     this._selectedMonth = this._computeCurrentMonth();
     this._currentMonth = this._computeCurrentMonth();
-    this._loading = false;
+    this._pendingLoads = new Map();
+    this._loadErrors = new Map();
     this._seasonCache = new Map();
     this._seasonData = null;
-    this._error = null;
   }
 
   setConfig(config) {
@@ -1801,35 +1818,56 @@ class EdfTempoMonthCard extends HTMLElement {
     return 5;
   }
 
-  async _ensureMonthData(monthRef) {
+  _ensureMonthData(monthRef) {
     const seasonStartYear = this._seasonStartYearForMonth(monthRef.year, monthRef.monthIndex);
-    if (!this._hass || this._loading || this._seasonCache.has(seasonStartYear)) {
-      if (this._seasonCache.has(seasonStartYear)) {
+    if (!this._hass) {
+      return Promise.resolve(null);
+    }
+    if (this._seasonCache.has(seasonStartYear)) {
+      if (
+        seasonStartYear ===
+        this._seasonStartYearForMonth(this._selectedMonth.year, this._selectedMonth.monthIndex)
+      ) {
         this._seasonData = this._seasonCache.get(seasonStartYear);
       }
-      return;
+      return Promise.resolve(this._seasonCache.get(seasonStartYear));
+    }
+    const pendingLoad = this._pendingLoads.get(seasonStartYear);
+    if (pendingLoad) {
+      return pendingLoad;
     }
 
-    this._loading = true;
-    this._error = null;
-    this._render();
-
-    try {
-      const result = await this._hass.connection.sendMessagePromise({
-        type: "edf_tempo/get_season_calendar",
-        season_start_year: seasonStartYear,
+    this._loadErrors.delete(seasonStartYear);
+    const loadPromise = Promise.resolve()
+      .then(() =>
+        this._hass.connection.sendMessagePromise({
+          type: "edf_tempo/get_season_calendar",
+          season_start_year: seasonStartYear,
+        }),
+      )
+      .then((result) => {
+        this._currentMonth = this._computeCurrentMonth();
+        this._seasonCache.set(seasonStartYear, result);
+        if (
+          seasonStartYear ===
+          this._seasonStartYearForMonth(this._selectedMonth.year, this._selectedMonth.monthIndex)
+        ) {
+          this._seasonData = result;
+        }
+        return result;
+      })
+      .catch((err) => {
+        this._loadErrors.set(seasonStartYear, err?.message || "Failed to load month data");
+        return null;
+      })
+      .finally(() => {
+        this._pendingLoads.delete(seasonStartYear);
+        this._render();
       });
-      this._currentMonth = this._computeCurrentMonth();
-      this._seasonCache.set(seasonStartYear, result);
-      if (seasonStartYear === this._seasonStartYearForMonth(this._selectedMonth.year, this._selectedMonth.monthIndex)) {
-        this._seasonData = result;
-      }
-    } catch (err) {
-      this._error = err?.message || "Failed to load month data";
-    } finally {
-      this._loading = false;
-      this._render();
-    }
+
+    this._pendingLoads.set(seasonStartYear, loadPromise);
+    this._render();
+    return loadPromise;
   }
 
   _render() {
@@ -1840,6 +1878,12 @@ class EdfTempoMonthCard extends HTMLElement {
     const model = this._buildMonthModel();
     const canGoPrevious = this._compareMonthRef(this._selectedMonth, this._minMonth) > 0;
     const canGoNext = this._compareMonthRef(this._selectedMonth, this._currentMonth) < 0;
+    const selectedSeasonStartYear = this._seasonStartYearForMonth(
+      this._selectedMonth.year,
+      this._selectedMonth.monthIndex,
+    );
+    const isLoading = this._pendingLoads.has(selectedSeasonStartYear);
+    const loadError = this._loadErrors.get(selectedSeasonStartYear);
 
     this.shadowRoot.innerHTML = `
       <style>
@@ -2007,10 +2051,10 @@ class EdfTempoMonthCard extends HTMLElement {
             <button class="nav" data-action="next" ${canGoNext ? "" : "disabled"}>&rarr;</button>
           </div>
           ${
-            this._loading
+            isLoading
               ? `<div class="state">${this._escapeHtml(this._t("loading_month"))}</div>`
-              : this._error
-                ? `<div class="state">${this._escapeHtml(this._error)}</div>`
+              : loadError
+                ? `<div class="state">${this._escapeHtml(loadError)}</div>`
                 : `<section class="month">
                     <div class="weekday-row">${model.weekdaysHtml}</div>
                     <div class="days">${model.daysHtml}</div>

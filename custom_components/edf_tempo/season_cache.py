@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from datetime import date
 import logging
 
 from homeassistant.core import HomeAssistant
@@ -38,35 +39,36 @@ class EdfTempoSeasonCache:
 
     async def async_load(self) -> None:
         """Load cached data from storage."""
-        stored = await self._store.async_load()
-        self._data = stored or {}
+        try:
+            stored = await self._store.async_load()
+        except (OSError, TypeError, ValueError) as err:
+            _LOGGER.warning("Ignoring unreadable EDF Tempo season cache: %s", err)
+            self._data = {}
+            return
+
+        if not isinstance(stored, dict):
+            if stored is not None:
+                _LOGGER.warning("Ignoring invalid EDF Tempo season cache structure")
+            self._data = {}
+            return
+
+        self._data = {
+            season_start: payload
+            for season_start, payload in stored.items()
+            if isinstance(season_start, str)
+            and _deserialize_entry(season_start, payload) is not None
+        }
+        invalid_entries = len(stored) - len(self._data)
+        if invalid_entries:
+            _LOGGER.warning(
+                "Ignored %s invalid EDF Tempo season cache entries",
+                invalid_entries,
+            )
         _LOGGER.debug("Loaded EDF Tempo season cache with %s entries", len(self._data))
 
     def get(self, season_start: str) -> TempoSeasonCacheEntry | None:
         """Return a cached season entry."""
-        payload = self._data.get(season_start)
-        if payload is None:
-            return None
-
-        summary_payload = payload.get("summary")
-        day_colors_payload = payload.get("day_colors")
-        if not isinstance(summary_payload, dict) or not isinstance(day_colors_payload, dict):
-            return None
-
-        return TempoSeasonCacheEntry(
-            summary=TempoSeasonSummaryData(
-                season_start=str(summary_payload["season_start"]),
-                season_end=str(summary_payload["season_end"]),
-                total_placed=int(summary_payload["total_placed"]),
-                blue_days=int(summary_payload["blue_days"]),
-                white_days=int(summary_payload["white_days"]),
-                red_days=int(summary_payload["red_days"]),
-                blue_total=int(summary_payload["blue_total"]),
-                white_total=int(summary_payload["white_total"]),
-                red_total=int(summary_payload["red_total"]),
-            ),
-            day_colors={str(key): str(value) for key, value in day_colors_payload.items()},
-        )
+        return _deserialize_entry(season_start, self._data.get(season_start))
 
     async def async_set(self, entry: TempoSeasonCacheEntry) -> None:
         """Persist a season entry."""
@@ -135,6 +137,86 @@ def build_cache_entry(
     return TempoSeasonCacheEntry(
         summary=_build_summary(season_start, season_end, normalized_day_colors),
         day_colors=normalized_day_colors,
+    )
+
+
+def _deserialize_entry(
+    season_start_key: str,
+    payload: object,
+) -> TempoSeasonCacheEntry | None:
+    """Validate and deserialize one persisted cache entry."""
+    if not isinstance(payload, dict):
+        return None
+
+    summary_payload = payload.get("summary")
+    day_colors_payload = payload.get("day_colors")
+    if not isinstance(summary_payload, dict) or not isinstance(day_colors_payload, dict):
+        return None
+
+    required_text_fields = ("season_start", "season_end")
+    required_number_fields = (
+        "total_placed",
+        "blue_days",
+        "white_days",
+        "red_days",
+        "blue_total",
+        "white_total",
+        "red_total",
+    )
+    if any(not isinstance(summary_payload.get(field), str) for field in required_text_fields):
+        return None
+    if any(
+        not isinstance(summary_payload.get(field), int)
+        or isinstance(summary_payload.get(field), bool)
+        or summary_payload[field] < 0
+        for field in required_number_fields
+    ):
+        return None
+
+    season_start = summary_payload["season_start"]
+    season_end = summary_payload["season_end"]
+    if season_start != season_start_key:
+        return None
+    try:
+        start_date = date.fromisoformat(season_start)
+        end_date = date.fromisoformat(season_end)
+    except ValueError:
+        return None
+    if start_date > end_date:
+        return None
+
+    day_colors: dict[str, str] = {}
+    for day_value, color in day_colors_payload.items():
+        if not isinstance(day_value, str) or color not in {"BLUE", "WHITE", "RED"}:
+            return None
+        try:
+            day_date = date.fromisoformat(day_value)
+        except ValueError:
+            return None
+        if not start_date <= day_date <= end_date:
+            return None
+        day_colors[day_value] = color
+
+    expected_summary = _build_summary(season_start, season_end, day_colors)
+    if any(
+        summary_payload[field] != getattr(expected_summary, field)
+        for field in ("total_placed", "blue_days", "white_days", "red_days")
+    ):
+        return None
+
+    return TempoSeasonCacheEntry(
+        summary=TempoSeasonSummaryData(
+            season_start=season_start,
+            season_end=season_end,
+            total_placed=summary_payload["total_placed"],
+            blue_days=summary_payload["blue_days"],
+            white_days=summary_payload["white_days"],
+            red_days=summary_payload["red_days"],
+            blue_total=summary_payload["blue_total"],
+            white_total=summary_payload["white_total"],
+            red_total=summary_payload["red_total"],
+        ),
+        day_colors=day_colors,
     )
 
 

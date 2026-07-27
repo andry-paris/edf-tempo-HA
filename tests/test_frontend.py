@@ -14,6 +14,7 @@ from custom_components.edf_tempo.const import CARD_URL_PATH, LEGACY_CARD_URL_PAT
 from custom_components.edf_tempo.frontend import (
     CARD_RESOURCE_URL,
     async_register_frontend,
+    async_remove_frontend_resource,
 )
 
 
@@ -30,6 +31,7 @@ class _Resources:
         self.items = list(items or [])
         self.created = []
         self.updated = []
+        self.deleted = []
 
     async def async_get_info(self):
         return {"resources": len(self.items)}
@@ -42,6 +44,10 @@ class _Resources:
 
     async def async_update_item(self, item_id, item):
         self.updated.append((item_id, item))
+
+    async def async_delete_item(self, item_id):
+        self.deleted.append(item_id)
+        self.items = [item for item in self.items if item["id"] != item_id]
 
 
 class _Hass:
@@ -105,6 +111,33 @@ class EdfTempoFrontendTests(unittest.TestCase):
         self.assertEqual(hass.http.paths[0].url_path, CARD_URL_PATH)
         self.assertEqual(resources.created, [])
         self.assertEqual(resources.updated, [])
+
+    def test_removes_current_and_legacy_resources_only(self) -> None:
+        """Final removal should clean integration resources without touching others."""
+        resources = _Resources(
+            [
+                {"id": "current", "type": "module", "url": CARD_RESOURCE_URL},
+                {"id": "legacy", "type": "module", "url": LEGACY_CARD_URL_PATH},
+                {"id": "other", "type": "module", "url": "/local/other-card.js"},
+            ]
+        )
+        hass = _Hass(SimpleNamespace(resource_mode="storage", resources=resources))
+
+        asyncio.run(async_remove_frontend_resource(hass))
+
+        self.assertEqual(resources.deleted, ["current", "legacy"])
+        self.assertEqual([item["id"] for item in resources.items], ["other"])
+
+    def test_remove_does_nothing_outside_storage_mode(self) -> None:
+        """YAML resources remain manually managed by the user."""
+        resources = _Resources(
+            [{"id": "card", "type": "module", "url": CARD_RESOURCE_URL}]
+        )
+        hass = _Hass(SimpleNamespace(resource_mode="yaml", resources=resources))
+
+        asyncio.run(async_remove_frontend_resource(hass))
+
+        self.assertEqual(resources.deleted, [])
 
 
 if __name__ == "__main__":

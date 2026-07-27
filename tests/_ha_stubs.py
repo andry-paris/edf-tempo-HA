@@ -113,6 +113,36 @@ def install() -> None:
     aiohttp_client.async_get_clientsession = async_get_clientsession
     sys.modules["homeassistant.helpers.aiohttp_client"] = aiohttp_client
 
+    selector = types.ModuleType("homeassistant.helpers.selector")
+
+    class TextSelectorType:
+        """Stub text selector types."""
+
+        PASSWORD = "password"
+
+    @dataclasses.dataclass(frozen=True)
+    class TextSelectorConfig:
+        """Stub text selector configuration."""
+
+        type: str
+        autocomplete: str | None = None
+
+    class TextSelector:
+        """Stub callable text selector."""
+
+        def __init__(self, config: TextSelectorConfig) -> None:
+            self.config = config
+
+        def __call__(self, value):
+            if not isinstance(value, str):
+                raise ValueError("expected string")
+            return value
+
+    selector.TextSelector = TextSelector
+    selector.TextSelectorConfig = TextSelectorConfig
+    selector.TextSelectorType = TextSelectorType
+    sys.modules["homeassistant.helpers.selector"] = selector
+
     entity_registry = types.ModuleType("homeassistant.helpers.entity_registry")
 
     def async_get(hass):
@@ -285,16 +315,46 @@ def install() -> None:
 
     voluptuous = types.ModuleType("voluptuous")
 
-    class _RequiredKey(str):
-        """Stub voluptuous required key wrapper."""
+    _undefined = object()
 
-    def Required(key, default=None):
-        return _RequiredKey(key)
+    class _Marker(str):
+        """Stub voluptuous schema key wrapper."""
 
-    def Schema(schema):
-        return schema
+        def __new__(cls, key, *, default=_undefined, required=False):
+            marker = super().__new__(cls, key)
+            marker.default = default
+            marker.required = required
+            return marker
+
+    def Required(key, default=_undefined):
+        return _Marker(key, default=default, required=True)
+
+    def Optional(key, default=_undefined):
+        return _Marker(key, default=default, required=False)
+
+    class Schema:
+        """Stub voluptuous schema with defaults and basic validation."""
+
+        def __init__(self, schema) -> None:
+            self.schema = schema
+
+        def __call__(self, data):
+            validated = dict(data)
+            for marker, validator in self.schema.items():
+                key = str(marker)
+                if key not in validated:
+                    if marker.default is not _undefined:
+                        validated[key] = marker.default
+                    elif marker.required:
+                        raise ValueError(f"required key missing: {key}")
+                    else:
+                        continue
+                value = validated[key]
+                validated[key] = validator(value)
+            return validated
 
     voluptuous.Required = Required
+    voluptuous.Optional = Optional
     voluptuous.Schema = Schema
     sys.modules["voluptuous"] = voluptuous
 

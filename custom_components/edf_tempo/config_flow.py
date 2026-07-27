@@ -9,17 +9,39 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.selector import (
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
+)
 
 from .api import EdfTempoApiError, EdfTempoAuthError, EdfTempoClient
 from .const import CONF_CLIENT_ID, CONF_CLIENT_SECRET, DEFAULT_NAME, DOMAIN
 
 
+CLIENT_SECRET_SELECTOR = TextSelector(
+    TextSelectorConfig(
+        type=TextSelectorType.PASSWORD,
+        autocomplete="current-password",
+    )
+)
+
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_CLIENT_ID): str,
-        vol.Required(CONF_CLIENT_SECRET): str,
+        vol.Required(CONF_CLIENT_SECRET): CLIENT_SECRET_SELECTOR,
     }
 )
+
+
+def _reconfigure_schema(client_id: str) -> vol.Schema:
+    """Return a reconfiguration schema that never exposes the stored secret."""
+    return vol.Schema(
+        {
+            vol.Required(CONF_CLIENT_ID, default=client_id): str,
+            vol.Optional(CONF_CLIENT_SECRET, default=""): CLIENT_SECRET_SELECTOR,
+        }
+    )
 
 
 class EdfTempoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -80,29 +102,26 @@ class EdfTempoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Handle reconfiguration of the existing entry."""
+        reconfigure_entry = self._get_reconfigure_entry()
         if user_input is None:
-            reconfigure_entry = self._get_reconfigure_entry()
             return self.async_show_form(
                 step_id="reconfigure",
-                data_schema=vol.Schema(
-                    {
-                        vol.Required(
-                            CONF_CLIENT_ID,
-                            default=reconfigure_entry.data[CONF_CLIENT_ID],
-                        ): str,
-                        vol.Required(
-                            CONF_CLIENT_SECRET,
-                            default=reconfigure_entry.data[CONF_CLIENT_SECRET],
-                        ): str,
-                    }
+                data_schema=_reconfigure_schema(
+                    reconfigure_entry.data[CONF_CLIENT_ID]
                 ),
             )
 
-        errors = await self._async_validate_input(user_input)
+        updated_data = dict(user_input)
+        if updated_data.get(CONF_CLIENT_SECRET, "") == "":
+            updated_data[CONF_CLIENT_SECRET] = reconfigure_entry.data[
+                CONF_CLIENT_SECRET
+            ]
+
+        errors = await self._async_validate_input(updated_data)
         if errors:
             return self.async_show_form(
                 step_id="reconfigure",
-                data_schema=STEP_USER_DATA_SCHEMA,
+                data_schema=_reconfigure_schema(user_input[CONF_CLIENT_ID]),
                 errors=errors,
             )
 
@@ -110,8 +129,8 @@ class EdfTempoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._abort_if_unique_id_mismatch()
 
         return self.async_update_reload_and_abort(
-            self._get_reconfigure_entry(),
-            data_updates=user_input,
+            reconfigure_entry,
+            data_updates=updated_data,
         )
 
     async def _async_validate_input(self, data: dict[str, Any]) -> dict[str, str]:

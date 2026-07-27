@@ -11,7 +11,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import EdfTempoClient
 from .const import CONF_CLIENT_ID, CONF_CLIENT_SECRET, DATA_COORDINATOR, DOMAIN
 from .coordinator import EdfTempoDataUpdateCoordinator
-from .frontend import async_register_frontend
+from .frontend import async_register_frontend, async_remove_frontend_resource
 from .season_cache import EdfTempoSeasonCache
 from .websocket_api import async_register as async_register_websocket
 
@@ -62,6 +62,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         elif not hass.data[DOMAIN]:
             hass.data.pop(DOMAIN)
     return unload_ok
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Clean up resources after permanent removal of a config entry."""
+    await async_remove_frontend_resource(hass)
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

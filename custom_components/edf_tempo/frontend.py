@@ -59,3 +59,27 @@ async def async_register_frontend(hass: HomeAssistant) -> None:
     await resources.async_create_item(
         {"res_type": "module", "url": CARD_RESOURCE_URL}
     )
+
+
+async def async_remove_frontend_resource(hass: HomeAssistant) -> None:
+    """Remove EDF Tempo Lovelace resources after final entry removal."""
+    lovelace_data = hass.data.get(LOVELACE_DATA)
+    if lovelace_data is None or lovelace_data.resource_mode != MODE_STORAGE:
+        return
+
+    resources = lovelace_data.resources
+    await resources.async_get_info()
+    resource_ids = [
+        resource["id"]
+        for resource in resources.async_items()
+        if resource.get("url", "").split("?", 1)[0]
+        in (CARD_URL_PATH, LEGACY_CARD_URL_PATH)
+    ]
+    for resource_id in resource_ids:
+        await resources.async_delete_item(resource_id)
+
+    if resource_ids:
+        _LOGGER.debug(
+            "Removed %s EDF Tempo Lovelace resources",
+            len(resource_ids),
+        )

@@ -20,7 +20,7 @@
       },
       "reconfigure": {
         "title": "Reconfigure EDF Tempo",
-        "description": "Update the OAuth2 credentials used to access the official EDF Tempo API.",
+        "description": "Update the OAuth2 credentials used to access the official EDF Tempo API. Leave the client secret empty to keep the existing secret.",
         "data": {
           "client_id": "Client ID",
           "client_secret": "Client secret"

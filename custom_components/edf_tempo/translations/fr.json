@@ -20,7 +20,7 @@
       },
       "reconfigure": {
         "title": "Reconfigurer EDF Tempo",
-        "description": "Mettez à jour les identifiants OAuth2 utilisés pour accéder à l'API officielle EDF Tempo.",
+        "description": "Mettez à jour les identifiants OAuth2 utilisés pour accéder à l'API officielle EDF Tempo. Laissez le client secret vide pour conserver le secret actuel.",
         "data": {
           "client_id": "Client ID",
           "client_secret": "Client secret"

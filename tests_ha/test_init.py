@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
-from homeassistant.config_entries import ConfigEntryState, SOURCE_REAUTH
+from homeassistant.config_entries import (
+    ConfigEntryState,
+    SOURCE_REAUTH,
+    SOURCE_RECONFIGURE,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import entity_registry as er
@@ -207,3 +211,59 @@ async def test_repeated_reinstall_after_entity_id_renames(
             assert hass.config_entries.async_entries(DOMAIN) == []
 
     assert DOMAIN not in hass.data
+
+
+async def test_reconfigure_hides_and_preserves_blank_secret(
+    hass: HomeAssistant,
+) -> None:
+    """Reconfigure should never prefill the secret and blank should preserve it."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="EDF Tempo",
+        data=OLD_CREDENTIALS,
+        unique_id=DOMAIN,
+    )
+    entry.add_to_hass(hass)
+
+    with (
+        patch.object(
+            EdfTempoDataUpdateCoordinator,
+            "async_config_entry_first_refresh",
+            _mock_first_refresh,
+        ),
+        patch(
+            "custom_components.edf_tempo.config_flow.EdfTempoClient.async_validate_credentials",
+            new=AsyncMock(return_value=None),
+        ),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": SOURCE_RECONFIGURE, "entry_id": entry.entry_id},
+        )
+        assert result["type"] is FlowResultType.FORM
+        assert result["step_id"] == "reconfigure"
+        assert result["data_schema"]({}) == {
+            CONF_CLIENT_ID: OLD_CREDENTIALS[CONF_CLIENT_ID],
+            CONF_CLIENT_SECRET: "",
+        }
+        assert OLD_CREDENTIALS[CONF_CLIENT_SECRET] not in repr(result["data_schema"])
+
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            user_input={CONF_CLIENT_ID: "updated-client-id", CONF_CLIENT_SECRET: ""},
+        )
+        await hass.async_block_till_done()
+
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "reconfigure_successful"
+        assert entry.data == {
+            CONF_CLIENT_ID: "updated-client-id",
+            CONF_CLIENT_SECRET: OLD_CREDENTIALS[CONF_CLIENT_SECRET],
+        }
+        assert entry.state is ConfigEntryState.LOADED
+
+        await hass.config_entries.async_remove(entry.entry_id)
+        await hass.async_block_till_done()

@@ -1,0 +1,76 @@
+{
+  "title": "EDF Tempo",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configurer EDF Tempo",
+        "description": "Saisissez les identifiants OAuth2 générés pour l'API officielle EDF Tempo.",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client secret"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reconnecter EDF Tempo",
+        "description": "L'authentification a échoué. Mettez à jour les identifiants OAuth2 pour continuer à utiliser l'intégration.",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client secret"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigurer EDF Tempo",
+        "description": "Mettez à jour les identifiants OAuth2 utilisés pour accéder à l'API officielle EDF Tempo.",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client secret"
+        }
+      }
+    },
+    "error": {
+      "already_configured": "EDF Tempo est déjà configuré",
+      "cannot_connect": "Impossible de se connecter à l'API EDF Tempo",
+      "invalid_auth": "Client ID ou client secret invalide",
+      "unknown": "Erreur inattendue"
+    },
+    "abort": {
+      "already_configured": "EDF Tempo est déjà configuré",
+      "reauth_successful": "Identifiants mis à jour avec succès",
+      "reconfigure_successful": "Configuration mise à jour avec succès"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "today": {
+        "name": "Aujourd'hui",
+        "state": {
+          "blue": "Bleu",
+          "white": "Blanc",
+          "red": "Rouge",
+          "unknown": "Inconnue"
+        }
+      },
+      "tomorrow": {
+        "name": "Demain",
+        "state": {
+          "blue": "Bleu",
+          "white": "Blanc",
+          "red": "Rouge",
+          "unknown": "Inconnue"
+        }
+      },
+      "season_summary": {
+        "name": "Synthèse de la saison"
+      },
+      "remaining_red_days": {
+        "name": "Jours rouges restants"
+      },
+      "remaining_white_days": {
+        "name": "Jours blancs restants"
+      },
+      "remaining_blue_days": {
+        "name": "Jours bleus restants"
+      }
+    }
+  }
+}

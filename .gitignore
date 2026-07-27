@@ -1,0 +1,61 @@
+# macOS
+.DS_Store
+._*
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+
+# Test and coverage output
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Packaging and build output
+build/
+dist/
+*.egg-info/
+*.whl
+
+# Editors and IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local secrets and environment files
+.env
+.env.*
+secrets.yaml
+
+# Local logs and temporary files
+*.log
+*.tmp
+*.temp
+
+# Local backup archives
+*.zip
+
+# Local working screenshots (repository root only)
+/screenshots/
+
+# Local private documentation (not published on GitHub)
+/README.private.md
+
+# Local backup files
+*.backup

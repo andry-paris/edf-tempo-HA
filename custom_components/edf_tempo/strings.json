@@ -1,0 +1,76 @@
+{
+  "title": "EDF Tempo",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up EDF Tempo",
+        "description": "Enter the OAuth2 credentials generated for the official EDF Tempo API.",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client secret"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reconnect EDF Tempo",
+        "description": "Authentication failed. Update the OAuth2 credentials to continue using the integration.",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client secret"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure EDF Tempo",
+        "description": "Update the OAuth2 credentials used to access the official EDF Tempo API.",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client secret"
+        }
+      }
+    },
+    "error": {
+      "already_configured": "EDF Tempo is already configured",
+      "cannot_connect": "Unable to connect to the EDF Tempo API",
+      "invalid_auth": "Invalid client ID or client secret",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "EDF Tempo is already configured",
+      "reauth_successful": "Credentials updated successfully",
+      "reconfigure_successful": "Configuration updated successfully"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "today": {
+        "name": "Today",
+        "state": {
+          "blue": "Blue",
+          "white": "White",
+          "red": "Red",
+          "unknown": "Unknown"
+        }
+      },
+      "tomorrow": {
+        "name": "Tomorrow",
+        "state": {
+          "blue": "Blue",
+          "white": "White",
+          "red": "Red",
+          "unknown": "Unknown"
+        }
+      },
+      "season_summary": {
+        "name": "Season Summary"
+      },
+      "remaining_red_days": {
+        "name": "Remaining red days"
+      },
+      "remaining_white_days": {
+        "name": "Remaining white days"
+      },
+      "remaining_blue_days": {
+        "name": "Remaining blue days"
+      }
+    }
+  }
+}

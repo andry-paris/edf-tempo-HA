@@ -1,0 +1,21 @@
+title: EDF Tempo
+views:
+  - title: Tempo
+    path: tempo
+    cards:
+      - type: grid
+        title: EDF Tempo
+        columns: 2
+        square: false
+        cards:
+          - type: entity
+            entity: sensor.edf_tempo_today
+            name: Aujourd'hui
+          - type: entity
+            entity: sensor.edf_tempo_tomorrow
+            name: Demain
+
+      - type: custom:edf-tempo-card
+        title: EDF Tempo
+        today_entity: sensor.edf_tempo_today
+        tomorrow_entity: sensor.edf_tempo_tomorrow

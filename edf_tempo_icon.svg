@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="topBlue" x1="128" y1="128" x2="896" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0E39B8"/>
+      <stop offset="1" stop-color="#3D94EF"/>
+    </linearGradient>
+    <linearGradient id="bottomBlue" x1="128" y1="512" x2="896" y2="896" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1C63D3"/>
+      <stop offset="1" stop-color="#5FB7FF"/>
+    </linearGradient>
+    <linearGradient id="dayBlue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1A7AF0"/>
+      <stop offset="1" stop-color="#123DB7"/>
+    </linearGradient>
+    <linearGradient id="dayWhite" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F7F7F7"/>
+      <stop offset="1" stop-color="#DCDCDC"/>
+    </linearGradient>
+    <linearGradient id="dayRed" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FF3A22"/>
+      <stop offset="1" stop-color="#D90C07"/>
+    </linearGradient>
+    <style>
+      .title { font: 700 110px Arial, Helvetica, sans-serif; fill: #F3F3F3; }
+      .subtitle { font: 700 68px Arial, Helvetica, sans-serif; fill: #F3F3F3; }
+      .tab { fill: #E9EDF2; stroke: #99A2AE; stroke-width: 2; }
+      .symbol-dark { fill: #8B939E; }
+      .symbol-light { fill: #F5F5F5; }
+      .outline-blue { stroke: #0C2D8A; stroke-width: 4; }
+      .outline-white { stroke: #C9CDD1; stroke-width: 4; }
+      .outline-red { stroke: #B80E0A; stroke-width: 4; }
+    </style>
+  </defs>
+
+  <rect x="128" y="128" width="768" height="768" fill="url(#topBlue)"/>
+  <rect x="128" y="512" width="768" height="384" fill="url(#bottomBlue)"/>
+
+  <g transform="translate(280,175)" fill="#FF6A17">
+    <path d="M78 0C98 0 116 11 124 26C115 51 95 72 71 74C53 61 42 41 42 21C50 8 63 0 78 0Z"/>
+    <path d="M0 64C9 45 27 34 49 34C69 34 89 44 101 60C98 84 78 99 54 99C29 99 10 88 0 64Z"/>
+    <path d="M27 144C42 126 63 119 85 121C88 146 78 169 60 185C35 187 14 174 4 154C8 149 16 146 27 144Z"/>
+    <path d="M118 123C144 120 169 128 188 146C188 171 173 191 149 198C129 190 115 170 112 145C113 137 115 130 118 123Z"/>
+    <path d="M144 62C163 42 187 34 213 37C225 50 231 67 229 84C213 98 191 104 168 102C151 93 142 80 144 62Z"/>
+  </g>
+
+  <text x="505" y="330" class="subtitle">edf</text>
+  <text x="280" y="455" class="title">Tempo</text>
+
+  <g transform="translate(205,560)">
+    <g>
+      <rect x="0" y="0" width="205" height="185" rx="22" fill="url(#dayBlue)" class="outline-blue"/>
+      <rect x="0" y="50" width="205" height="4" fill="#63B9FF" opacity="0.95"/>
+      <rect x="36" y="-15" width="22" height="40" rx="5" class="tab"/>
+      <rect x="136" y="-15" width="22" height="40" rx="5" class="tab"/>
+      <path d="M55 112L91 147L163 75" stroke="#F5F5F5" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <g transform="translate(196,15)">
+      <rect x="0" y="0" width="215" height="190" rx="22" fill="url(#dayWhite)" class="outline-white"/>
+      <rect x="0" y="34" width="215" height="4" fill="#C4C7CB"/>
+      <rect x="44" y="-30" width="22" height="40" rx="5" class="tab"/>
+      <rect x="144" y="-30" width="22" height="40" rx="5" class="tab"/>
+      <rect x="56" y="90" width="103" height="20" rx="4" class="symbol-dark"/>
+    </g>
+
+    <g transform="translate(400,0)">
+      <rect x="0" y="0" width="220" height="185" rx="22" fill="url(#dayRed)" class="outline-red"/>
+      <rect x="0" y="50" width="220" height="4" fill="#FF8E84" opacity="0.8"/>
+      <rect x="40" y="-15" width="22" height="40" rx="5" class="tab"/>
+      <rect x="144" y="-15" width="22" height="40" rx="5" class="tab"/>
+      <rect x="104" y="60" width="28" height="76" rx="7" class="symbol-light"/>
+      <circle cx="118" cy="156" r="15" class="symbol-light"/>
+    </g>
+  </g>
+</svg>

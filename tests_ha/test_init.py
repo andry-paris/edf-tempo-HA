@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 from homeassistant.config_entries import ConfigEntryState, SOURCE_REAUTH
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.edf_tempo.api import (
@@ -100,9 +101,21 @@ async def test_install_reload_reauth_uninstall(hass: HomeAssistant) -> None:
         assert hass.states.get("sensor.edf_tempo_today").state == "blue"
         assert hass.states.get("sensor.edf_tempo_tomorrow").state == "white"
 
+        entity_registry = er.async_get(hass)
+        entity_registry.async_update_entity(
+            "sensor.edf_tempo_today",
+            new_entity_id="sensor.ma_couleur_tempo",
+        )
+        assert hass.states.get("sensor.ma_couleur_tempo") is not None
+
         assert await hass.config_entries.async_reload(entry.entry_id)
         await hass.async_block_till_done()
-        assert all(hass.states.get(entity_id) is not None for entity_id in ENTITY_IDS)
+        assert hass.states.get("sensor.ma_couleur_tempo") is not None
+        assert hass.states.get("sensor.edf_tempo_today") is None
+        assert all(
+            hass.states.get(entity_id) is not None
+            for entity_id in ENTITY_IDS - {"sensor.edf_tempo_today"}
+        )
 
         result = await hass.config_entries.flow.async_init(
             DOMAIN,
@@ -122,7 +135,11 @@ async def test_install_reload_reauth_uninstall(hass: HomeAssistant) -> None:
         assert result["reason"] == "reauth_successful"
         assert entry.data == NEW_CREDENTIALS
         assert len(hass.config_entries.async_entries(DOMAIN)) == 1
-        assert all(hass.states.get(entity_id) is not None for entity_id in ENTITY_IDS)
+        assert hass.states.get("sensor.ma_couleur_tempo") is not None
+        assert all(
+            hass.states.get(entity_id) is not None
+            for entity_id in ENTITY_IDS - {"sensor.edf_tempo_today"}
+        )
 
         remove_result = await hass.config_entries.async_remove(entry.entry_id)
         await hass.async_block_till_done()
@@ -130,4 +147,63 @@ async def test_install_reload_reauth_uninstall(hass: HomeAssistant) -> None:
     assert remove_result == {"require_restart": False}
     assert hass.config_entries.async_entries(DOMAIN) == []
     assert all(hass.states.get(entity_id) is None for entity_id in ENTITY_IDS)
+    assert hass.states.get("sensor.ma_couleur_tempo") is None
+    assert DOMAIN not in hass.data
+
+
+async def test_repeated_reinstall_after_entity_id_renames(
+    hass: HomeAssistant,
+) -> None:
+    """Reinstall cleanly after repeated entity ID customizations and removals."""
+    entity_registry = er.async_get(hass)
+
+    with patch.object(
+        EdfTempoDataUpdateCoordinator,
+        "async_config_entry_first_refresh",
+        _mock_first_refresh,
+    ):
+        for cycle in range(1, 4):
+            entry = MockConfigEntry(
+                domain=DOMAIN,
+                title="EDF Tempo",
+                data=OLD_CREDENTIALS,
+                unique_id=DOMAIN,
+            )
+            entry.add_to_hass(hass)
+
+            assert await hass.config_entries.async_setup(entry.entry_id)
+            await hass.async_block_till_done()
+
+            registry_entries = er.async_entries_for_config_entry(
+                entity_registry, entry.entry_id
+            )
+            assert len(registry_entries) == len(ENTITY_IDS)
+            assert {item.entity_id for item in registry_entries} == ENTITY_IDS
+            assert all(hass.states.get(entity_id) is not None for entity_id in ENTITY_IDS)
+
+            renamed_entity_id = f"sensor.ma_couleur_tempo_cycle_{cycle}"
+            entity_registry.async_update_entity(
+                "sensor.edf_tempo_today",
+                new_entity_id=renamed_entity_id,
+            )
+
+            assert await hass.config_entries.async_reload(entry.entry_id)
+            await hass.async_block_till_done()
+            assert hass.states.get(renamed_entity_id) is not None
+            assert hass.states.get("sensor.edf_tempo_today") is None
+            assert len(
+                er.async_entries_for_config_entry(entity_registry, entry.entry_id)
+            ) == len(ENTITY_IDS)
+
+            remove_result = await hass.config_entries.async_remove(entry.entry_id)
+            await hass.async_block_till_done()
+
+            assert remove_result == {"require_restart": False}
+            assert er.async_entries_for_config_entry(
+                entity_registry, entry.entry_id
+            ) == []
+            assert all(hass.states.get(entity_id) is None for entity_id in ENTITY_IDS)
+            assert hass.states.get(renamed_entity_id) is None
+            assert hass.config_entries.async_entries(DOMAIN) == []
+
     assert DOMAIN not in hass.data

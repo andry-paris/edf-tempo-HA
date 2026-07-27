@@ -12,7 +12,7 @@ DATA_COORDINATOR = "coordinator"
 CARD_FILENAME = "card.js"
 CARD_URL_PATH = "/edf_tempo/card.js"
 LEGACY_CARD_URL_PATH = "/local/edf_tempo/card.js"
-INTEGRATION_VERSION = "1.2.3"
+INTEGRATION_VERSION = "1.2.4"
 
 CONF_CLIENT_ID = "client_id"
 CONF_CLIENT_SECRET = "client_secret"

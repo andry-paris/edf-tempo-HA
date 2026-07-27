@@ -124,17 +124,17 @@ Après le redémarrage :
 
 L’intégration vérifie les identifiants et commence ensuite à récupérer les informations Tempo. Une seule configuration EDF Tempo est nécessaire par installation Home Assistant.
 
-La configuration s’effectue exclusivement depuis l’interface de Home Assistant : aucune configuration YAML n’est nécessaire.
+La configuration s’effectue exclusivement depuis l’interface de Home Assistant : aucune configuration YAML n’est nécessaire. Les identifiants proposés aux nouvelles entités restent entièrement gérés par Home Assistant, qui conserve les renommages et personnalisations effectués par l’utilisateur.
 
 ## Ajouter les cartes visuelles
 
 Les cartes sont installées et enregistrées automatiquement avec l’intégration. Après le redémarrage de Home Assistant, actualisez votre navigateur puis ajoutez la carte EDF Tempo souhaitée depuis l’éditeur du tableau de bord.
 
-Si vos ressources Lovelace sont gérées manuellement en mode YAML, ajoutez `/edf_tempo/card.js?v=1.2.3` comme module JavaScript dans votre configuration.
+Si vos ressources Lovelace sont gérées manuellement en mode YAML, ajoutez `/edf_tempo/card.js?v=1.2.4` comme module JavaScript dans votre configuration.
 
 ## Données et confidentialité
 
-Les couleurs Tempo proviennent de l’API officielle de RTE. Les données des saisons consultées sont conservées localement par Home Assistant afin de réduire les demandes inutiles.
+Les couleurs Tempo proviennent de l’API officielle de RTE. Dans Home Assistant, l’appareil est donc présenté comme une intégration communautaire et son modèle indique explicitement RTE comme source des données. Les données des saisons consultées sont conservées localement par Home Assistant afin de réduire les demandes inutiles.
 
 Les diagnostics masquent les identifiants et les jetons de connexion. Ne partagez néanmoins jamais vos identifiants RTE dans une capture d’écran, un journal ou un signalement de problème.
 
@@ -153,7 +153,7 @@ Ce logiciel est fourni gratuitement, sans garantie et sans engagement d’assist
 
 ## Qualité et validation
 
-Chaque modification est contrôlée automatiquement avec HACS, Hassfest et les tests Python. Une suite complémentaire utilise les fixtures officielles de Home Assistant pour vérifier le cycle complet d’installation, de rechargement, de réauthentification et de désinstallation, ainsi que l’enregistrement des cartes dans Lovelace.
+Chaque modification est contrôlée automatiquement avec HACS, Hassfest et les tests Python. Une suite complémentaire utilise les fixtures officielles de Home Assistant pour vérifier le cycle complet d’installation, de rechargement, de réauthentification et de désinstallation, ainsi que l’enregistrement des cartes dans Lovelace. Elle répète également les installations et désinstallations après renommage des entités afin de détecter les doublons et les entrées orphelines.
 
 Les outils utilisés par ces contrôles sont figés sur des versions précises afin de garantir des validations reproductibles. Dependabot surveille leurs mises à jour et propose automatiquement les évolutions disponibles.
 

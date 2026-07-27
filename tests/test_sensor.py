@@ -53,11 +53,23 @@ class EdfTempoSensorTests(unittest.TestCase):
             self.assertEqual(description.device_class, SensorDeviceClass.ENUM)
             self.assertEqual(description.options, TEMPO_COLOR_OPTIONS)
 
+    def test_device_identifies_the_community_integration_and_rte_source(self) -> None:
+        """Device metadata should not identify EDF as the manufacturer."""
+        device_info = self._sensor("today", _Coordinator("BLUE", "RED")).device_info
+        self.assertEqual(device_info["manufacturer"], "Community integration")
+        self.assertEqual(device_info["model"], "Tempo data source: RTE")
+
     def test_color_codes_are_normalized_to_lowercase(self) -> None:
         """Raw API color codes become canonical lowercase enum states."""
         coordinator = _Coordinator("BLUE", "RED")
         self.assertEqual(self._sensor("today", coordinator).native_value, "blue")
         self.assertEqual(self._sensor("tomorrow", coordinator).native_value, "red")
+
+    def test_entity_id_is_suggested_but_not_forced(self) -> None:
+        """Home Assistant should remain responsible for the entity ID."""
+        sensor = self._sensor("today", _Coordinator("BLUE", "RED"))
+        self.assertEqual(sensor._attr_suggested_object_id, "edf_tempo_today")
+        self.assertIsNone(getattr(sensor, "entity_id", None))
 
     def test_missing_or_unrecognized_color_is_unknown(self) -> None:
         """Missing and unexpected API colors use the enum's unknown option."""

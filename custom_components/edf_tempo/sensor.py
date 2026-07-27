@@ -130,7 +130,6 @@ class EdfTempoSensor(CoordinatorEntity[EdfTempoDataUpdateCoordinator], SensorEnt
         self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
         self._attr_suggested_object_id = description.object_id
-        self.entity_id = f"sensor.{description.object_id}"
 
     @property
     def native_value(self) -> str | int:
@@ -189,8 +188,8 @@ class EdfTempoSensor(CoordinatorEntity[EdfTempoDataUpdateCoordinator], SensorEnt
         return DeviceInfo(
             identifiers={(DOMAIN, self._entry.entry_id)},
             name=DEFAULT_NAME,
-            manufacturer="EDF",
-            model="RTE Tempo Supply Contract API for EDF Tempo",
+            manufacturer="Community integration",
+            model="Tempo data source: RTE",
         )
 
     @property

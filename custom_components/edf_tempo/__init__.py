@@ -5,7 +5,7 @@ from __future__ import annotations
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import config_validation as cv, entity_registry as er
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import EdfTempoClient
@@ -46,7 +46,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
     hass.data[DOMAIN][DATA_COORDINATOR] = coordinator
-    await _async_rename_sensor_entity_ids(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
@@ -68,31 +67,3 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate old config entries."""
     return True
-
-
-async def _async_rename_sensor_entity_ids(
-    hass: HomeAssistant, entry: ConfigEntry
-) -> None:
-    """Rename existing EDF Tempo entity IDs to their canonical English form."""
-    entity_registry = er.async_get(hass)
-    desired_entity_ids = {
-        f"{entry.entry_id}_today": "sensor.edf_tempo_today",
-        f"{entry.entry_id}_tomorrow": "sensor.edf_tempo_tomorrow",
-        f"{entry.entry_id}_season_summary": "sensor.edf_tempo_season_summary",
-        f"{entry.entry_id}_remaining_red_days": "sensor.edf_tempo_remaining_red_days",
-        f"{entry.entry_id}_remaining_white_days": "sensor.edf_tempo_remaining_white_days",
-        f"{entry.entry_id}_remaining_blue_days": "sensor.edf_tempo_remaining_blue_days",
-    }
-
-    for entity_entry in er.async_entries_for_config_entry(entity_registry, entry.entry_id):
-        desired_entity_id = desired_entity_ids.get(entity_entry.unique_id)
-        if desired_entity_id is None or entity_entry.entity_id == desired_entity_id:
-            continue
-
-        if entity_registry.async_get(desired_entity_id) is not None:
-            continue
-
-        entity_registry.async_update_entity(
-            entity_entry.entity_id,
-            new_entity_id=desired_entity_id,
-        )

@@ -69,7 +69,7 @@ jobs:
         include:
           - home-assistant: "2025.1.0 (minimum)"
             python-version: "3.13"
-            test-requirement: "pytest-homeassistant-custom-component==0.13.201"
+            test-requirement: "pytest-homeassistant-custom-component==0.13.201 pycares==4.5.0"
           - home-assistant: "current (pinned)"
             python-version: "3.14"
             test-requirement: "-r requirements-test.txt"

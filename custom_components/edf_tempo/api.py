@@ -227,13 +227,19 @@ class EdfTempoClient:
                         f"Token request failed with status {response.status}: {body}"
                     )
 
-                payload = await response.json(content_type=None)
+                try:
+                    payload = await response.json(content_type=None)
+                except (ValueError, UnicodeDecodeError) as err:
+                    raise EdfTempoApiError("Token response contained invalid JSON") from err
         except asyncio.TimeoutError as err:
             _LOGGER.warning("EDF Tempo token request timed out")
             raise EdfTempoApiError("Token request timed out") from err
         except aiohttp.ClientError as err:
             _LOGGER.warning("EDF Tempo token request failed: %s", err)
             raise EdfTempoApiError(f"Token request failed: {err}") from err
+
+        if not isinstance(payload, dict):
+            raise EdfTempoApiError("Token response was not a JSON object")
 
         access_token = payload.get("access_token")
         expires_in = payload.get("expires_in", 7200)
@@ -290,7 +296,15 @@ class EdfTempoClient:
                         f"API request failed with status {response.status}: {body}"
                     )
 
-                return await response.json(content_type=None)
+                try:
+                    payload = await response.json(content_type=None)
+                except (ValueError, UnicodeDecodeError) as err:
+                    raise EdfTempoApiError("API response contained invalid JSON") from err
+
+                if not isinstance(payload, dict):
+                    raise EdfTempoApiError("API response was not a JSON object")
+
+                return payload
         except asyncio.TimeoutError as err:
             _LOGGER.warning("EDF Tempo API request timed out for %s %s", method, url)
             raise EdfTempoApiError("API request timed out") from err

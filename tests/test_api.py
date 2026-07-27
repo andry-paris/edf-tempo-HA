@@ -28,6 +28,37 @@ class _TimeoutSession:
         return _TimeoutRequestContext()
 
 
+class _JsonResponseContext:
+    status = 200
+
+    def __init__(self, payload=None, *, error=None) -> None:
+        self._payload = payload
+        self._error = error
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+    async def json(self, *, content_type=None):
+        if self._error is not None:
+            raise self._error
+        return self._payload
+
+
+class _JsonSession:
+    def __init__(self, payload=None, *, error=None) -> None:
+        self._payload = payload
+        self._error = error
+
+    def post(self, *args, **kwargs):
+        return _JsonResponseContext(self._payload, error=self._error)
+
+    def request(self, *args, **kwargs):
+        return _JsonResponseContext(self._payload, error=self._error)
+
+
 class EdfTempoApiParsingTests(unittest.TestCase):
     """Validate response parsing and date helpers."""
 
@@ -121,6 +152,70 @@ class EdfTempoApiParsingTests(unittest.TestCase):
             )
 
         self.assertEqual(str(context.exception), "API request timed out")
+
+    def test_access_token_invalid_json_is_reported_cleanly(self) -> None:
+        """Invalid JSON in a successful token response should raise a client error."""
+        client = EdfTempoClient(
+            session=_JsonSession(error=ValueError("invalid JSON")),
+            client_id="id",
+            client_secret="secret",
+        )
+
+        with self.assertRaises(EdfTempoApiError) as context:
+            asyncio.run(client._async_get_access_token(force_refresh=True))
+
+        self.assertEqual(str(context.exception), "Token response contained invalid JSON")
+
+    def test_access_token_rejects_non_object_json(self) -> None:
+        """A token response must be a JSON object before fields are accessed."""
+        client = EdfTempoClient(
+            session=_JsonSession([{"access_token": "token"}]),
+            client_id="id",
+            client_secret="secret",
+        )
+
+        with self.assertRaises(EdfTempoApiError) as context:
+            asyncio.run(client._async_get_access_token(force_refresh=True))
+
+        self.assertEqual(str(context.exception), "Token response was not a JSON object")
+
+    def test_api_request_invalid_json_is_reported_cleanly(self) -> None:
+        """Invalid JSON in a successful API response should raise a client error."""
+        client = EdfTempoClient(
+            session=_JsonSession(error=ValueError("invalid JSON")),
+            client_id="id",
+            client_secret="secret",
+        )
+
+        with self.assertRaises(EdfTempoApiError) as context:
+            asyncio.run(
+                client._async_request_json(
+                    "GET",
+                    "https://example.test",
+                    headers={"Authorization": "Bearer token"},
+                )
+            )
+
+        self.assertEqual(str(context.exception), "API response contained invalid JSON")
+
+    def test_api_request_rejects_non_object_json(self) -> None:
+        """A successful API response must contain a JSON object."""
+        client = EdfTempoClient(
+            session=_JsonSession([]),
+            client_id="id",
+            client_secret="secret",
+        )
+
+        with self.assertRaises(EdfTempoApiError) as context:
+            asyncio.run(
+                client._async_request_json(
+                    "GET",
+                    "https://example.test",
+                    headers={"Authorization": "Bearer token"},
+                )
+            )
+
+        self.assertEqual(str(context.exception), "API response was not a JSON object")
 
 
 if __name__ == "__main__":

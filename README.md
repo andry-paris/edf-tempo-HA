@@ -100,7 +100,7 @@ Vous avez besoin :
 
 Pour obtenir ces identifiants, créez une application sur [data.rte-france.org](https://data.rte-france.org/) et souscrivez-la à l’API Tempo.
 
-L'API RTE est décrite sur : https://data.rte-france.eu/web/guest/catalog/-/api/doc/user-guide/Tempo+Like+Supply+Contract/1.1
+L'inscription à l'API Tempo RTE se fait sur ce site : https://data.rte-france.com/catalog/-/api/consumption/Tempo-Like-Supply-Contract/v1.1
 
 ## Installation avec HACS
 

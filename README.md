@@ -151,6 +151,10 @@ Vous pouvez utiliser les [issues GitHub](https://github.com/andry-paris/edf-temp
 
 Ce logiciel est fourni gratuitement, sans garantie et sans engagement d’assistance individuelle. Son utilisation reste sous votre responsabilité.
 
+## Qualité et validation
+
+Chaque modification est contrôlée automatiquement avec HACS, Hassfest et les tests Python. Une suite complémentaire utilise les fixtures officielles de Home Assistant pour vérifier le cycle complet d’installation, de rechargement, de réauthentification et de désinstallation, ainsi que l’enregistrement des cartes dans Lovelace.
+
 ## Licence
 
 Copyright 2026 **andry-paris**.

@@ -155,6 +155,8 @@ Ce logiciel est fourni gratuitement, sans garantie et sans engagement d’assist
 
 Chaque modification est contrôlée automatiquement avec HACS, Hassfest et les tests Python. Une suite complémentaire utilise les fixtures officielles de Home Assistant pour vérifier le cycle complet d’installation, de rechargement, de réauthentification et de désinstallation, ainsi que l’enregistrement des cartes dans Lovelace.
 
+Les outils utilisés par ces contrôles sont figés sur des versions précises afin de garantir des validations reproductibles. Dependabot surveille leurs mises à jour et propose automatiquement les évolutions disponibles.
+
 ## Licence
 
 Copyright 2026 **andry-paris**.

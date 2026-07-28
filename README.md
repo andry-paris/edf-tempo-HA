@@ -5,7 +5,7 @@
 [![Validation](https://github.com/andry-paris/edf-tempo-HA/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/andry-paris/edf-tempo-HA/actions/workflows/validate.yml)
 [![Home Assistant 2025.1+](https://img.shields.io/badge/Home%20Assistant-2025.1%2B-18BCF2?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![GitHub release](https://img.shields.io/github/v/release/andry-paris/edf-tempo-HA?logo=github)](https://github.com/andry-paris/edf-tempo-HA/releases/latest)
-[![Licence Apache 2.0](https://img.shields.io/github/license/andry-paris/edf-tempo-HA)](LICENSE)
+[![Licence Apache 2.0](https://img.shields.io/github/license/andry-paris/edf-tempo-HA?logo=apache&logoColor=white)](LICENSE)
 
 Suivez facilement les couleurs **EDF Tempo** dans Home Assistant et anticipez les jours où votre consommation d’électricité mérite une attention particulière.
 
@@ -137,7 +137,7 @@ La configuration s’effectue exclusivement depuis l’interface de Home Assista
 
 Les cartes sont installées et enregistrées automatiquement avec l’intégration. Après le redémarrage de Home Assistant, actualisez votre navigateur puis ajoutez la carte EDF Tempo souhaitée depuis l’éditeur du tableau de bord. La ressource Lovelace créée automatiquement est supprimée lors de la désinstallation définitive de l’intégration.
 
-Si vos ressources Lovelace sont gérées manuellement en mode YAML, ajoutez `/edf_tempo/card.js?v=1.2.7` comme module JavaScript dans votre configuration.
+Si vos ressources Lovelace sont gérées manuellement en mode YAML, ajoutez `/edf_tempo/card.js?v=1.2.8` comme module JavaScript dans votre configuration.
 
 ## Données et confidentialité
 

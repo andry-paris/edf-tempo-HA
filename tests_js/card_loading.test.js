@@ -6,7 +6,7 @@ const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
 
-function loadCardClasses() {
+function loadCardClasses(language = "fr-FR") {
   const registeredElements = new Map();
 
   class FakeHTMLElement {
@@ -49,7 +49,7 @@ function loadCardClasses() {
     HTMLElement: FakeHTMLElement,
     Intl,
     Map,
-    navigator: { language: "fr-FR" },
+    navigator: { language },
     Promise,
     ResizeObserver: class ResizeObserver {
       disconnect() {}
@@ -80,6 +80,7 @@ function loadCardClasses() {
     MonthEditor: registeredElements.get("edf-tempo-month-card-editor"),
     SeasonCalendarEditor: registeredElements.get("edf-tempo-season-calendar-card-editor"),
     SeasonCalendarCard: registeredElements.get("edf-tempo-season-calendar-card"),
+    SeasonCard: registeredElements.get("edf-tempo-season-card"),
     SeasonEditor: registeredElements.get("edf-tempo-season-card-editor"),
   };
 }
@@ -155,6 +156,92 @@ test("calendar card editors do not expose irrelevant entity fields", () => {
   const monthEditor = new MonthEditor();
   monthEditor.setConfig({});
   assert.doesNotMatch(monthEditor.shadowRoot.innerHTML, /entity-picker/);
+});
+
+test("card editors expose explicit French labels", () => {
+  const { DailyEditor, MonthEditor, SeasonCalendarEditor, SeasonCard, SeasonEditor } =
+    loadCardClasses("fr-FR");
+
+  const dailyEditor = new DailyEditor();
+  dailyEditor.setConfig({});
+  dailyEditor.hass = { locale: { language: "fr" }, states: {} };
+  assert.match(dailyEditor.shadowRoot.innerHTML, />Titre</);
+  assert.match(dailyEditor.shadowRoot.innerHTML, />Entité d'aujourd'hui</);
+  assert.match(dailyEditor.shadowRoot.innerHTML, />Entité de demain</);
+
+  const seasonEditor = new SeasonEditor();
+  seasonEditor.setConfig({});
+  seasonEditor.hass = { locale: { language: "fr" }, states: {} };
+  assert.match(seasonEditor.shadowRoot.innerHTML, />Entité de synthèse de la saison</);
+
+  const calendarEditor = new SeasonCalendarEditor();
+  calendarEditor.setConfig({});
+  calendarEditor.hass = { locale: { language: "fr" } };
+  assert.match(calendarEditor.shadowRoot.innerHTML, />Colonnes</);
+
+  const monthEditor = new MonthEditor();
+  monthEditor.setConfig({});
+  monthEditor.hass = { locale: { language: "fr" } };
+  assert.match(monthEditor.shadowRoot.innerHTML, /Cette carte utilise automatiquement/);
+
+  const seasonCard = new SeasonCard();
+  seasonCard._hass = { locale: { language: "fr" } };
+  const model = seasonCard._buildSeasonModel({
+    attributes: {
+      season_start: "2025-09-01",
+      season_end: "2026-08-31",
+      blue_days: 1,
+      white_days: 1,
+      red_days: 1,
+    },
+  });
+  assert.match(model.seasonLabel, /1 septembre 2025 au 31 août 2026/);
+  assert.equal(model.blueRow.label, "Jours bleus");
+});
+
+test("card editors and season content are fully localized in English", () => {
+  const { DailyEditor, MonthEditor, SeasonCalendarEditor, SeasonCard, SeasonEditor } =
+    loadCardClasses("en-GB");
+  const englishHass = { locale: { language: "en" }, states: {} };
+
+  const dailyEditor = new DailyEditor();
+  dailyEditor.setConfig({});
+  dailyEditor.hass = englishHass;
+  assert.match(dailyEditor.shadowRoot.innerHTML, />Title</);
+  assert.match(dailyEditor.shadowRoot.innerHTML, />Today's entity</);
+  assert.match(dailyEditor.shadowRoot.innerHTML, />Tomorrow's entity</);
+  assert.doesNotMatch(dailyEditor.shadowRoot.innerHTML, />Titre</);
+
+  const seasonEditor = new SeasonEditor();
+  seasonEditor.setConfig({});
+  seasonEditor.hass = englishHass;
+  assert.match(seasonEditor.shadowRoot.innerHTML, />Season summary entity</);
+
+  const calendarEditor = new SeasonCalendarEditor();
+  calendarEditor.setConfig({});
+  calendarEditor.hass = englishHass;
+  assert.match(calendarEditor.shadowRoot.innerHTML, />Columns</);
+
+  const monthEditor = new MonthEditor();
+  monthEditor.setConfig({});
+  monthEditor.hass = englishHass;
+  assert.match(monthEditor.shadowRoot.innerHTML, /This card automatically uses/);
+
+  const seasonCard = new SeasonCard();
+  seasonCard._hass = englishHass;
+  const model = seasonCard._buildSeasonModel({
+    attributes: {
+      season_start: "2025-09-01",
+      season_end: "2026-08-31",
+      blue_days: 1,
+      white_days: 1,
+      red_days: 1,
+    },
+  });
+  assert.match(model.seasonLabel, /1 September 2025 to 31 August 2026/);
+  assert.equal(model.blueRow.label, "Blue days");
+  assert.equal(model.whiteRow.label, "White days");
+  assert.equal(model.redRow.label, "Red days");
 });
 
 test("season calendar loads rapid navigation requests per season", async () => {

@@ -42,7 +42,6 @@ class EdfTempoSensorEntityDescription(SensorEntityDescription):
     """Describe an EDF Tempo sensor."""
 
     value_key: str = ""
-    object_id: str = ""
 
 
 TEMPO_COLOR_OPTIONS = ["blue", "white", "red", "unknown"]
@@ -60,7 +59,6 @@ SENSORS: tuple[EdfTempoSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.ENUM,
         options=TEMPO_COLOR_OPTIONS,
         value_key="today",
-        object_id="edf_tempo_today",
     ),
     EdfTempoSensorEntityDescription(
         key="tomorrow",
@@ -68,34 +66,29 @@ SENSORS: tuple[EdfTempoSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.ENUM,
         options=TEMPO_COLOR_OPTIONS,
         value_key="tomorrow",
-        object_id="edf_tempo_tomorrow",
     ),
     EdfTempoSensorEntityDescription(
         key="season_summary",
         translation_key="season_summary",
         value_key="season_summary",
-        object_id="edf_tempo_season_summary",
     ),
     EdfTempoSensorEntityDescription(
         key="remaining_red_days",
         translation_key="remaining_red_days",
         native_unit_of_measurement="d",
         value_key="remaining_red_days",
-        object_id="edf_tempo_remaining_red_days",
     ),
     EdfTempoSensorEntityDescription(
         key="remaining_white_days",
         translation_key="remaining_white_days",
         native_unit_of_measurement="d",
         value_key="remaining_white_days",
-        object_id="edf_tempo_remaining_white_days",
     ),
     EdfTempoSensorEntityDescription(
         key="remaining_blue_days",
         translation_key="remaining_blue_days",
         native_unit_of_measurement="d",
         value_key="remaining_blue_days",
-        object_id="edf_tempo_remaining_blue_days",
     ),
 )
 
@@ -129,7 +122,16 @@ class EdfTempoSensor(CoordinatorEntity[EdfTempoDataUpdateCoordinator], SensorEnt
         self.entity_description = description
         self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
-        self._attr_suggested_object_id = description.object_id
+
+    @property
+    def suggested_object_id(self) -> str:
+        """Return a language-independent object ID component.
+
+        Home Assistant prefixes this component with the device name. Defining
+        the property explicitly prevents the translated entity name from being
+        used when a French installation creates the entity registry entry.
+        """
+        return self.entity_description.key
 
     @property
     def native_value(self) -> str | int:

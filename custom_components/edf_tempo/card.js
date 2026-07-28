@@ -6,6 +6,64 @@
  *    type: custom:edf-tempo-season-calendar-card or type: custom:edf-tempo-month-card
  */
 
+const EDF_TEMPO_CARD_TRANSLATIONS = {
+  en: {
+    blue_days: "Blue days",
+    calendar_title: "EDF Tempo Calendar",
+    columns: "Columns",
+    daily_today_entity: "Today's entity",
+    daily_tomorrow_entity: "Tomorrow's entity",
+    load_month_failed: "Failed to load month data",
+    load_season_failed: "Failed to load season data",
+    month_help: "This card automatically uses the displayed month and navigation arrows.",
+    monthly_title: "EDF Tempo Monthly",
+    next: "Next",
+    previous: "Previous",
+    red_days: "Red days",
+    season_entity: "Season summary entity",
+    season_summary_title: "Season summary",
+    season_to: "to",
+    season_unavailable: "Season summary unavailable",
+    title: "Title",
+    white_days: "White days",
+  },
+  fr: {
+    blue_days: "Jours bleus",
+    calendar_title: "Calendrier EDF Tempo",
+    columns: "Colonnes",
+    daily_today_entity: "Entité d'aujourd'hui",
+    daily_tomorrow_entity: "Entité de demain",
+    load_month_failed: "Impossible de charger les données du mois",
+    load_season_failed: "Impossible de charger les données de la saison",
+    month_help: "Cette carte utilise automatiquement le mois affiché et les flèches de navigation.",
+    monthly_title: "EDF Tempo mensuel",
+    next: "Suivant",
+    previous: "Précédent",
+    red_days: "Jours rouges",
+    season_entity: "Entité de synthèse de la saison",
+    season_summary_title: "Synthèse de la saison",
+    season_to: "au",
+    season_unavailable: "Synthèse de la saison indisponible",
+    title: "Titre",
+    white_days: "Jours blancs",
+  },
+};
+
+function edfTempoCardIsFrench(hass) {
+  const language =
+    hass?.locale?.language ||
+    hass?.language ||
+    hass?.selectedLanguage ||
+    navigator.language ||
+    "en";
+  return String(language).toLowerCase().startsWith("fr");
+}
+
+function edfTempoCardText(hass, key) {
+  const language = edfTempoCardIsFrench(hass) ? "fr" : "en";
+  return EDF_TEMPO_CARD_TRANSLATIONS[language][key] || key;
+}
+
 class EdfTempoCardEditor extends HTMLElement {
   set hass(hass) {
     this._hass = hass;
@@ -97,15 +155,15 @@ class EdfTempoCardEditor extends HTMLElement {
       </style>
       <div class="form">
         <div class="field">
-          <label for="title">Titre</label>
+          <label for="title">${edfTempoCardText(this._hass, "title")}</label>
           <input id="title" type="text" value="${this._escapeAttribute(this._config.title)}" />
         </div>
         <div class="field">
-          <label for="today_entity">Entité aujourd'hui</label>
+          <label for="today_entity">${edfTempoCardText(this._hass, "daily_today_entity")}</label>
           <ha-entity-picker id="today_entity"></ha-entity-picker>
         </div>
         <div class="field">
-          <label for="tomorrow_entity">Entité demain</label>
+          <label for="tomorrow_entity">${edfTempoCardText(this._hass, "daily_tomorrow_entity")}</label>
           <ha-entity-picker id="tomorrow_entity"></ha-entity-picker>
         </div>
       </div>
@@ -670,7 +728,7 @@ class EdfTempoSeasonCardEditor extends HTMLElement {
   setConfig(config) {
     const nextConfig = {
       type: "custom:edf-tempo-season-card",
-      title: config.title || "Synthèse de la saison",
+      title: config.title || edfTempoCardText(this._hass, "season_summary_title"),
       entity: this._resolveSeasonEntity(config.entity),
     };
 
@@ -726,11 +784,11 @@ class EdfTempoSeasonCardEditor extends HTMLElement {
       </style>
       <div class="form">
         <div class="field">
-          <label for="title">Titre</label>
+          <label for="title">${edfTempoCardText(this._hass, "title")}</label>
           <input id="title" type="text" value="${this._escapeAttribute(this._config.title)}" />
         </div>
         <div class="field">
-          <label for="entity">Entité synthèse</label>
+          <label for="entity">${edfTempoCardText(this._hass, "season_entity")}</label>
           <ha-entity-picker id="entity"></ha-entity-picker>
         </div>
       </div>
@@ -814,7 +872,7 @@ class EdfTempoSeasonCard extends HTMLElement {
   static getStubConfig() {
     return {
       type: "custom:edf-tempo-season-card",
-      title: "Synthèse de la saison",
+      title: edfTempoCardText(null, "season_summary_title"),
       entity: "sensor.edf_tempo_season_summary",
     };
   }
@@ -830,7 +888,7 @@ class EdfTempoSeasonCard extends HTMLElement {
   setConfig(config) {
     this._config = {
       type: "custom:edf-tempo-season-card",
-      title: config.title || "Synthèse de la saison",
+      title: config.title || edfTempoCardText(this._hass, "season_summary_title"),
       entity: this._resolveSeasonEntity(config.entity),
     };
     this._render();
@@ -989,15 +1047,16 @@ class EdfTempoSeasonCard extends HTMLElement {
     if (!entity) {
       return {
         available: false,
-        seasonLabel: "1er Septembre ---- au 31 Août ----",
-        emptyLabel: "Synthèse indisponible",
+        seasonLabel: `${this._formatSeasonStart(null)} ${edfTempoCardText(this._hass, "season_to")} ${this._formatSeasonEnd(null)}`,
+        emptyLabel: edfTempoCardText(this._hass, "season_unavailable"),
       };
     }
 
     const attrs = entity.attributes || {};
-    const seasonLabel = `${this._formatSeasonStart(attrs.season_start)} au ${this._formatSeasonEnd(
-      attrs.season_end,
-    )}`;
+    const seasonLabel = `${this._formatSeasonStart(attrs.season_start)} ${edfTempoCardText(
+      this._hass,
+      "season_to",
+    )} ${this._formatSeasonEnd(attrs.season_end)}`;
     const blueDays = this._toNumber(attrs.blue_days);
     const whiteDays = this._toNumber(attrs.white_days);
     const redDays = this._toNumber(attrs.red_days);
@@ -1009,19 +1068,19 @@ class EdfTempoSeasonCard extends HTMLElement {
       available: true,
       seasonLabel,
       blueRow: {
-        label: "Jours Bleus",
+        label: edfTempoCardText(this._hass, "blue_days"),
         left: blueTotal - blueDays,
         placed: blueDays,
         total: blueTotal,
       },
       whiteRow: {
-        label: "Jours Blancs",
+        label: edfTempoCardText(this._hass, "white_days"),
         left: whiteTotal - whiteDays,
         placed: whiteDays,
         total: whiteTotal,
       },
       redRow: {
-        label: "Jours Rouges",
+        label: edfTempoCardText(this._hass, "red_days"),
         left: redTotal - redDays,
         placed: redDays,
         total: redTotal,
@@ -1043,19 +1102,27 @@ class EdfTempoSeasonCard extends HTMLElement {
   _formatSeasonStart(value) {
     const date = this._parseIsoDate(value);
     if (!date) {
-      return "1er Septembre ----";
+      return edfTempoCardIsFrench(this._hass) ? "1er septembre ----" : "1 September ----";
     }
 
-    return `1er Septembre ${date.getFullYear()}`;
+    return new Intl.DateTimeFormat(edfTempoCardIsFrench(this._hass) ? "fr-FR" : "en-GB", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(date);
   }
 
   _formatSeasonEnd(value) {
     const date = this._parseIsoDate(value);
     if (!date) {
-      return "31 Août ----";
+      return edfTempoCardIsFrench(this._hass) ? "31 août ----" : "31 August ----";
     }
 
-    return `31 Août ${date.getFullYear()}`;
+    return new Intl.DateTimeFormat(edfTempoCardIsFrench(this._hass) ? "fr-FR" : "en-GB", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(date);
   }
 
   _parseIsoDate(value) {
@@ -1094,10 +1161,15 @@ class EdfTempoSeasonCalendarCardEditor extends HTMLElement {
     this._initialized = false;
   }
 
+  set hass(hass) {
+    this._hass = hass;
+    this._render();
+  }
+
   setConfig(config) {
     const nextConfig = {
       type: "custom:edf-tempo-season-calendar-card",
-      title: config.title || "Calendrier EDF Tempo",
+      title: config.title || edfTempoCardText(this._hass, "calendar_title"),
       columns: this._normalizeColumns(config.columns),
     };
 
@@ -1152,11 +1224,11 @@ class EdfTempoSeasonCalendarCardEditor extends HTMLElement {
       </style>
       <div class="form">
         <div class="field">
-          <label for="title">Titre</label>
+          <label for="title">${edfTempoCardText(this._hass, "title")}</label>
           <input id="title" type="text" value="${this._escapeAttribute(this._config.title)}" />
         </div>
         <div class="field">
-          <label for="columns">Colonnes</label>
+          <label for="columns">${edfTempoCardText(this._hass, "columns")}</label>
           <input
             id="columns"
             type="number"
@@ -1223,7 +1295,7 @@ class EdfTempoSeasonCalendarCard extends HTMLElement {
   static getStubConfig() {
     return {
       type: "custom:edf-tempo-season-calendar-card",
-      title: "Calendrier EDF Tempo",
+      title: edfTempoCardText(null, "calendar_title"),
       columns: 2,
     };
   }
@@ -1260,7 +1332,7 @@ class EdfTempoSeasonCalendarCard extends HTMLElement {
   setConfig(config) {
     const nextConfig = {
       type: "custom:edf-tempo-season-calendar-card",
-      title: config.title || "Calendrier EDF Tempo",
+      title: config.title || edfTempoCardText(this._hass, "calendar_title"),
       columns: this._normalizeColumns(config.columns),
     };
     const configChanged =
@@ -1339,7 +1411,10 @@ class EdfTempoSeasonCalendarCard extends HTMLElement {
         return result;
       })
       .catch((err) => {
-        this._loadErrors.set(seasonStartYear, err?.message || "Failed to load season data");
+        this._loadErrors.set(
+          seasonStartYear,
+          err?.message || edfTempoCardText(this._hass, "load_season_failed"),
+        );
         return null;
       })
       .finally(() => {
@@ -1543,12 +1618,12 @@ class EdfTempoSeasonCalendarCard extends HTMLElement {
       <ha-card>
         <div class="card">
           <div class="header">
-            <button class="nav" data-action="previous" ${canGoPrevious ? "" : "disabled"}>&larr;</button>
+            <button class="nav" data-action="previous" aria-label="${edfTempoCardText(this._hass, "previous")}" title="${edfTempoCardText(this._hass, "previous")}" ${canGoPrevious ? "" : "disabled"}>&larr;</button>
             <div class="heading">
               <div class="title">${this._escapeHtml(this._config.title)}</div>
               <div class="season">${this._escapeHtml(model.seasonLabel)}</div>
             </div>
-            <button class="nav" data-action="next" ${canGoNext ? "" : "disabled"}>&rarr;</button>
+            <button class="nav" data-action="next" aria-label="${edfTempoCardText(this._hass, "next")}" title="${edfTempoCardText(this._hass, "next")}" ${canGoNext ? "" : "disabled"}>&rarr;</button>
           </div>
           ${
             isLoading
@@ -1756,6 +1831,11 @@ class EdfTempoMonthCardEditor extends HTMLElement {
     this._config = {};
   }
 
+  set hass(hass) {
+    this._hass = hass;
+    this._render();
+  }
+
   setConfig(config) {
     this._config = {
       type: "custom:edf-tempo-month-card",
@@ -1782,7 +1862,7 @@ class EdfTempoMonthCardEditor extends HTMLElement {
         }
       </style>
       <div class="message">
-        Cette carte utilise automatiquement le mois affiché et les flèches de navigation.
+        ${edfTempoCardText(this._hass, "month_help")}
       </div>
     `;
   }
@@ -1870,7 +1950,10 @@ class EdfTempoMonthCard extends HTMLElement {
         return result;
       })
       .catch((err) => {
-        this._loadErrors.set(seasonStartYear, err?.message || "Failed to load month data");
+        this._loadErrors.set(
+          seasonStartYear,
+          err?.message || edfTempoCardText(this._hass, "load_month_failed"),
+        );
         return null;
       })
       .finally(() => {
@@ -2055,13 +2138,13 @@ class EdfTempoMonthCard extends HTMLElement {
       <ha-card>
         <div class="card">
           <div class="header">
-            <button class="nav" data-action="previous" ${canGoPrevious ? "" : "disabled"}>&larr;</button>
+            <button class="nav" data-action="previous" aria-label="${edfTempoCardText(this._hass, "previous")}" title="${edfTempoCardText(this._hass, "previous")}" ${canGoPrevious ? "" : "disabled"}>&larr;</button>
             <div class="heading">
-              <div class="card-title">EDF Tempo Mensuel</div>
+              <div class="card-title">${this._escapeHtml(edfTempoCardText(this._hass, "monthly_title"))}</div>
               <div class="title">${this._escapeHtml(model.title)}</div>
               <div class="year">${this._escapeHtml(model.year)}</div>
             </div>
-            <button class="nav" data-action="next" ${canGoNext ? "" : "disabled"}>&rarr;</button>
+            <button class="nav" data-action="next" aria-label="${edfTempoCardText(this._hass, "next")}" title="${edfTempoCardText(this._hass, "next")}" ${canGoNext ? "" : "disabled"}>&rarr;</button>
           </div>
           ${
             isLoading

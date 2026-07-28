@@ -24,8 +24,8 @@ class EdfTempoCardEditor extends HTMLElement {
         today_entity: resolvedToday,
         tomorrow_entity: resolvedTomorrow,
       };
-      this._render();
     }
+    this._render();
   }
 
   constructor() {
@@ -80,7 +80,8 @@ class EdfTempoCardEditor extends HTMLElement {
           font-weight: 600;
         }
 
-        input {
+        input,
+        ha-entity-picker {
           background: var(--card-background-color, #fff);
           border: 1px solid var(--divider-color, #d8dde6);
           border-radius: 10px;
@@ -101,40 +102,42 @@ class EdfTempoCardEditor extends HTMLElement {
         </div>
         <div class="field">
           <label for="today_entity">Entité aujourd'hui</label>
-          <input
-            id="today_entity"
-            type="text"
-            value="${this._escapeAttribute(this._config.today_entity)}"
-          />
+          <ha-entity-picker id="today_entity"></ha-entity-picker>
         </div>
         <div class="field">
           <label for="tomorrow_entity">Entité demain</label>
-          <input
-            id="tomorrow_entity"
-            type="text"
-            value="${this._escapeAttribute(this._config.tomorrow_entity)}"
-          />
-          <div class="hint">Exemple: sensor.edf_tempo_tomorrow</div>
+          <ha-entity-picker id="tomorrow_entity"></ha-entity-picker>
         </div>
       </div>
     `;
 
+    for (const fieldId of ["today_entity", "tomorrow_entity"]) {
+      const picker = this.shadowRoot.querySelector(`#${fieldId}`);
+      picker.hass = this._hass;
+      picker.value = this._config[fieldId];
+      picker.includeDomains = ["sensor"];
+      picker.allowCustomEntity = true;
+    }
+
     if (!this._initialized) {
       this._initialized = true;
       this.shadowRoot.addEventListener("input", this._handleInput.bind(this));
+      this.shadowRoot.addEventListener("value-changed", this._handleInput.bind(this));
     }
   }
 
   _handleInput(event) {
     const target = event.target;
-    if (!(target instanceof HTMLInputElement)) {
+    if (!target?.id || !["title", "today_entity", "tomorrow_entity"].includes(target.id)) {
       return;
     }
+
+    const value = event.detail?.value ?? target.value ?? "";
 
     const nextConfig = {
       ...this._config,
       type: "custom:edf-tempo-card",
-      [target.id]: target.value.trim(),
+      [target.id]: String(value).trim(),
     };
 
     this._config = nextConfig;
@@ -652,8 +655,8 @@ class EdfTempoSeasonCardEditor extends HTMLElement {
     const resolvedEntity = this._resolveSeasonEntity(this._config.entity);
     if (resolvedEntity !== this._config.entity) {
       this._config = { ...this._config, entity: resolvedEntity };
-      this._render();
     }
+    this._render();
   }
 
   constructor() {
@@ -711,7 +714,8 @@ class EdfTempoSeasonCardEditor extends HTMLElement {
           font-weight: 600;
         }
 
-        input {
+        input,
+        ha-entity-picker {
           background: var(--card-background-color, #fff);
           border: 1px solid var(--divider-color, #d8dde6);
           border-radius: 10px;
@@ -727,27 +731,36 @@ class EdfTempoSeasonCardEditor extends HTMLElement {
         </div>
         <div class="field">
           <label for="entity">Entité synthèse</label>
-          <input id="entity" type="text" value="${this._escapeAttribute(this._config.entity)}" />
+          <ha-entity-picker id="entity"></ha-entity-picker>
         </div>
       </div>
     `;
 
+    const picker = this.shadowRoot.querySelector("#entity");
+    picker.hass = this._hass;
+    picker.value = this._config.entity;
+    picker.includeDomains = ["sensor"];
+    picker.allowCustomEntity = true;
+
     if (!this._initialized) {
       this._initialized = true;
       this.shadowRoot.addEventListener("input", this._handleInput.bind(this));
+      this.shadowRoot.addEventListener("value-changed", this._handleInput.bind(this));
     }
   }
 
   _handleInput(event) {
     const target = event.target;
-    if (!(target instanceof HTMLInputElement)) {
+    if (!target?.id || !["title", "entity"].includes(target.id)) {
       return;
     }
+
+    const value = event.detail?.value ?? target.value ?? "";
 
     const nextConfig = {
       ...this._config,
       type: "custom:edf-tempo-season-card",
-      [target.id]: target.value.trim(),
+      [target.id]: String(value).trim(),
     };
 
     this._config = nextConfig;

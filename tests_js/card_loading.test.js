@@ -16,10 +16,22 @@ function loadCardClasses() {
     }
 
     attachShadow() {
+      const elements = new Map();
       this.shadowRoot = {
+        addEventListener() {},
         innerHTML: "",
-        querySelector() {
-          return null;
+        querySelector(selector) {
+          const id = selector.startsWith("#") ? selector.slice(1) : selector;
+          if (!elements.has(id)) {
+            elements.set(id, {
+              allowCustomEntity: false,
+              hass: null,
+              id,
+              includeDomains: null,
+              value: "",
+            });
+          }
+          return elements.get(id);
         },
       };
       return this.shadowRoot;
@@ -63,8 +75,12 @@ function loadCardClasses() {
   vm.runInContext(fs.readFileSync(cardPath, "utf8"), context, { filename: cardPath });
 
   return {
+    DailyEditor: registeredElements.get("edf-tempo-card-editor"),
     MonthCard: registeredElements.get("edf-tempo-month-card"),
+    MonthEditor: registeredElements.get("edf-tempo-month-card-editor"),
+    SeasonCalendarEditor: registeredElements.get("edf-tempo-season-calendar-card-editor"),
     SeasonCalendarCard: registeredElements.get("edf-tempo-season-calendar-card"),
+    SeasonEditor: registeredElements.get("edf-tempo-season-card-editor"),
   };
 }
 
@@ -89,6 +105,57 @@ function fakeHass(requests) {
     },
   };
 }
+
+test("entity-based card editors use Home Assistant sensor pickers", () => {
+  const { DailyEditor, SeasonEditor } = loadCardClasses();
+  const hass = {
+    states: {
+      "sensor.edf_tempo_season_summary": {},
+      "sensor.edf_tempo_today": {},
+      "sensor.edf_tempo_tomorrow": {},
+    },
+  };
+
+  const dailyEditor = new DailyEditor();
+  dailyEditor.setConfig({});
+  dailyEditor.hass = hass;
+
+  for (const [fieldId, expectedValue] of [
+    ["today_entity", "sensor.edf_tempo_today"],
+    ["tomorrow_entity", "sensor.edf_tempo_tomorrow"],
+  ]) {
+    const picker = dailyEditor.shadowRoot.querySelector(`#${fieldId}`);
+    assert.strictEqual(picker.hass, hass);
+    assert.equal(picker.value, expectedValue);
+    assert.deepEqual(picker.includeDomains, ["sensor"]);
+    assert.equal(picker.allowCustomEntity, true);
+  }
+  assert.match(dailyEditor.shadowRoot.innerHTML, /<ha-entity-picker id="today_entity">/);
+  assert.match(dailyEditor.shadowRoot.innerHTML, /<ha-entity-picker id="tomorrow_entity">/);
+
+  const seasonEditor = new SeasonEditor();
+  seasonEditor.setConfig({});
+  seasonEditor.hass = hass;
+
+  const seasonPicker = seasonEditor.shadowRoot.querySelector("#entity");
+  assert.strictEqual(seasonPicker.hass, hass);
+  assert.equal(seasonPicker.value, "sensor.edf_tempo_season_summary");
+  assert.deepEqual(seasonPicker.includeDomains, ["sensor"]);
+  assert.equal(seasonPicker.allowCustomEntity, true);
+  assert.match(seasonEditor.shadowRoot.innerHTML, /<ha-entity-picker id="entity">/);
+});
+
+test("calendar card editors do not expose irrelevant entity fields", () => {
+  const { MonthEditor, SeasonCalendarEditor } = loadCardClasses();
+
+  const seasonCalendarEditor = new SeasonCalendarEditor();
+  seasonCalendarEditor.setConfig({});
+  assert.doesNotMatch(seasonCalendarEditor.shadowRoot.innerHTML, /entity-picker/);
+
+  const monthEditor = new MonthEditor();
+  monthEditor.setConfig({});
+  assert.doesNotMatch(monthEditor.shadowRoot.innerHTML, /entity-picker/);
+});
 
 test("season calendar loads rapid navigation requests per season", async () => {
   const { SeasonCalendarCard } = loadCardClasses();

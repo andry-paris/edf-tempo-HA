@@ -116,7 +116,11 @@ class EdfTempoSensor(CoordinatorEntity[EdfTempoDataUpdateCoordinator], SensorEnt
     """Representation of an EDF Tempo sensor."""
 
     entity_description: EdfTempoSensorEntityDescription
-    _attr_has_entity_name = True
+    # Keep entity IDs stable across Home Assistant languages. With entity-name
+    # composition enabled, Home Assistant derives the object ID from translated
+    # labels (for example ``edf_tempo_aujourd_hui`` in French) instead of using
+    # the integration's language-independent suggested object ID.
+    _attr_has_entity_name = False
 
     def __init__(
         self,

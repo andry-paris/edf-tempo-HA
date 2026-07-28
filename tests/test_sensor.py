@@ -66,9 +66,10 @@ class EdfTempoSensorTests(unittest.TestCase):
         self.assertEqual(self._sensor("tomorrow", coordinator).native_value, "red")
 
     def test_entity_id_is_suggested_but_not_forced(self) -> None:
-        """Home Assistant should remain responsible for the entity ID."""
+        """Home Assistant should use a language-independent suggested entity ID."""
         sensor = self._sensor("today", _Coordinator("BLUE", "RED"))
         self.assertEqual(sensor._attr_suggested_object_id, "edf_tempo_today")
+        self.assertFalse(sensor._attr_has_entity_name)
         self.assertIsNone(getattr(sensor, "entity_id", None))
 
     def test_missing_or_unrecognized_color_is_unknown(self) -> None:

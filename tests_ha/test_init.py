@@ -76,6 +76,37 @@ async def _mock_first_refresh(
     coordinator.async_set_updated_data(MOCK_DATA)
 
 
+async def test_entity_ids_remain_english_with_french_language(
+    hass: HomeAssistant,
+) -> None:
+    """French display translations must not localize entity IDs."""
+    hass.config.language = "fr"
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="EDF Tempo",
+        data=OLD_CREDENTIALS,
+        unique_id=DOMAIN,
+    )
+    entry.add_to_hass(hass)
+
+    with patch.object(
+        EdfTempoDataUpdateCoordinator,
+        "async_config_entry_first_refresh",
+        _mock_first_refresh,
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    registry_entries = er.async_entries_for_config_entry(
+        er.async_get(hass), entry.entry_id
+    )
+    assert {registry_entry.entity_id for registry_entry in registry_entries} == ENTITY_IDS
+    assert hass.states.get("sensor.edf_tempo_aujourd_hui") is None
+
+    await hass.config_entries.async_remove(entry.entry_id)
+    await hass.async_block_till_done()
+
+
 async def test_install_reload_reauth_uninstall(hass: HomeAssistant) -> None:
     """Exercise the complete config entry lifecycle with real HA services."""
     entry = MockConfigEntry(

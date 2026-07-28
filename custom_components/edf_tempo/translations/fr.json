@@ -42,7 +42,7 @@
   "entity": {
     "sensor": {
       "today": {
-        "name": "Aujourd'hui",
+        "name": "Today",
         "state": {
           "blue": "Bleu",
           "white": "Blanc",
@@ -51,7 +51,7 @@
         }
       },
       "tomorrow": {
-        "name": "Demain",
+        "name": "Tomorrow",
         "state": {
           "blue": "Bleu",
           "white": "Blanc",
@@ -60,16 +60,16 @@
         }
       },
       "season_summary": {
-        "name": "Synthèse de la saison"
+        "name": "Season Summary"
       },
       "remaining_red_days": {
-        "name": "Jours rouges restants"
+        "name": "Remaining red days"
       },
       "remaining_white_days": {
-        "name": "Jours blancs restants"
+        "name": "Remaining white days"
       },
       "remaining_blue_days": {
-        "name": "Jours bleus restants"
+        "name": "Remaining blue days"
       }
     }
   }

@@ -127,7 +127,7 @@ test("entity-based card editors use Home Assistant sensor pickers", () => {
     const picker = dailyEditor.shadowRoot.querySelector(`#${fieldId}`);
     assert.strictEqual(picker.hass, hass);
     assert.equal(picker.value, expectedValue);
-    assert.deepEqual(picker.includeDomains, ["sensor"]);
+    assert.deepEqual(Array.from(picker.includeDomains), ["sensor"]);
     assert.equal(picker.allowCustomEntity, true);
   }
   assert.match(dailyEditor.shadowRoot.innerHTML, /<ha-entity-picker id="today_entity">/);
@@ -140,7 +140,7 @@ test("entity-based card editors use Home Assistant sensor pickers", () => {
   const seasonPicker = seasonEditor.shadowRoot.querySelector("#entity");
   assert.strictEqual(seasonPicker.hass, hass);
   assert.equal(seasonPicker.value, "sensor.edf_tempo_season_summary");
-  assert.deepEqual(seasonPicker.includeDomains, ["sensor"]);
+  assert.deepEqual(Array.from(seasonPicker.includeDomains), ["sensor"]);
   assert.equal(seasonPicker.allowCustomEntity, true);
   assert.match(seasonEditor.shadowRoot.innerHTML, /<ha-entity-picker id="entity">/);
 });

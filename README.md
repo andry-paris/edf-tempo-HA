@@ -1,5 +1,12 @@
 # EDF Tempo pour Home Assistant
 
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5?logo=homeassistantcommunitystore&logoColor=white)](https://github.com/hacs/integration)
+[![Hassfest](https://img.shields.io/badge/Hassfest-valid%C3%A9-41BDF5?logo=homeassistant&logoColor=white)](https://github.com/andry-paris/edf-tempo-HA/actions/workflows/validate.yml)
+[![Validation](https://github.com/andry-paris/edf-tempo-HA/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/andry-paris/edf-tempo-HA/actions/workflows/validate.yml)
+[![Home Assistant 2025.1+](https://img.shields.io/badge/Home%20Assistant-2025.1%2B-18BCF2?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
+[![GitHub release](https://img.shields.io/github/v/release/andry-paris/edf-tempo-HA?logo=github)](https://github.com/andry-paris/edf-tempo-HA/releases/latest)
+[![Licence Apache 2.0](https://img.shields.io/github/license/andry-paris/edf-tempo-HA)](LICENSE)
+
 Suivez facilement les couleurs **EDF Tempo** dans Home Assistant et anticipez les jours où votre consommation d’électricité mérite une attention particulière.
 
 L’intégration affiche la couleur du jour, celle du lendemain dès sa publication par RTE, ainsi que l’avancement complet de la saison Tempo. Elle propose également plusieurs cartes visuelles pour retrouver toutes ces informations directement dans votre tableau de bord.

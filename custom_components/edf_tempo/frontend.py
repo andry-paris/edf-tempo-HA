@@ -12,6 +12,7 @@ from homeassistant.core import HomeAssistant
 from .const import (
     CARD_FILENAME,
     CARD_URL_PATH,
+    DOMAIN,
     INTEGRATION_VERSION,
     LEGACY_CARD_URL_PATH,
 )
@@ -19,6 +20,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 LOVELACE_DATA = "lovelace"
+FRONTEND_STATIC_REGISTERED = "_frontend_static_registered"
 CARD_RESOURCE_URL = f"{CARD_URL_PATH}?v={INTEGRATION_VERSION}"
 
 
@@ -40,14 +42,19 @@ def _get_storage_resources(hass: HomeAssistant):
 
 async def async_register_frontend(hass: HomeAssistant) -> None:
     """Expose the card bundle and register it as a Lovelace resource."""
-    card_path = Path(__file__).parent / CARD_FILENAME
-    await hass.http.async_register_static_paths(
-        [StaticPathConfig(CARD_URL_PATH, str(card_path), False)]
-    )
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    if not domain_data.get(FRONTEND_STATIC_REGISTERED):
+        card_path = Path(__file__).parent / CARD_FILENAME
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(CARD_URL_PATH, str(card_path), False)]
+        )
+        domain_data[FRONTEND_STATIC_REGISTERED] = True
 
     resources = _get_storage_resources(hass)
     if resources is None:
-        _LOGGER.warning("Lovelace is unavailable; EDF Tempo cards were not registered")
+        _LOGGER.warning(
+            "Lovelace resources are unavailable; EDF Tempo card registration will be retried"
+        )
         return
     await resources.async_get_info()
 

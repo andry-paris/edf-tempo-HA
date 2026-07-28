@@ -75,6 +75,25 @@ class EdfTempoFrontendTests(unittest.TestCase):
             [{"res_type": "module", "url": CARD_RESOURCE_URL}],
         )
 
+    def test_retries_resource_registration_without_registering_path_twice(self) -> None:
+        """A later config-entry setup should repair an initially unavailable Lovelace resource."""
+        hass = _Hass()
+
+        asyncio.run(async_register_frontend(hass))
+
+        resources = _Resources()
+        hass.data["lovelace"] = SimpleNamespace(
+            resource_mode="storage",
+            resources=resources,
+        )
+        asyncio.run(async_register_frontend(hass))
+
+        self.assertEqual(len(hass.http.paths), 1)
+        self.assertEqual(
+            resources.created,
+            [{"res_type": "module", "url": CARD_RESOURCE_URL}],
+        )
+
     def test_updates_previous_automatic_resource(self) -> None:
         resources = _Resources(
             [{"id": "card", "type": "module", "url": f"{CARD_URL_PATH}?v=old"}]

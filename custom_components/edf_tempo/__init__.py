@@ -32,6 +32,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up EDF Tempo from a config entry."""
     hass.data.setdefault(DOMAIN, {})
+    # Retry Lovelace registration here in case its resource collection was not
+    # ready during the integration's global setup.
+    await async_register_frontend(hass)
 
     session = async_get_clientsession(hass)
     season_cache = EdfTempoSeasonCache(hass)

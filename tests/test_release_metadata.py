@@ -39,6 +39,7 @@ class EdfTempoReleaseMetadataTests(unittest.TestCase):
 
         self.assertEqual(hacs["name"], "EDF Tempo")
         self.assertEqual(hacs["country"], "FR")
+        self.assertEqual(hacs["homeassistant"], "2025.1.0")
         for key in (
             "codeowners",
             "config_flow",
@@ -57,6 +58,8 @@ class EdfTempoReleaseMetadataTests(unittest.TestCase):
             ROOT / "LICENSE",
             ROOT / "NOTICE",
             ROOT / "README.md",
+            ROOT / "brand" / "icon.png",
+            ROOT / "brand" / "icon@2x.png",
             INTEGRATION_DIR / "brand" / "icon.png",
             INTEGRATION_DIR / "brand" / "icon@2x.png",
             INTEGRATION_DIR / "card.js",

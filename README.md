@@ -1,8 +1,6 @@
 # EDF Tempo pour Home Assistant
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5?logo=homeassistantcommunitystore&logoColor=white)](https://github.com/hacs/integration)
-[![Hassfest](https://img.shields.io/badge/Hassfest-valid%C3%A9-41BDF5?logo=homeassistant&logoColor=white)](https://github.com/andry-paris/edf-tempo-HA/actions/workflows/validate.yml)
-[![Validation](https://github.com/andry-paris/edf-tempo-HA/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/andry-paris/edf-tempo-HA/actions/workflows/validate.yml)
 [![Home Assistant 2025.1+](https://img.shields.io/badge/Home%20Assistant-2025.1%2B-18BCF2?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![GitHub release](https://img.shields.io/github/v/release/andry-paris/edf-tempo-HA?logo=github)](https://github.com/andry-paris/edf-tempo-HA/releases/latest)
 [![Licence Apache 2.0](https://img.shields.io/github/license/andry-paris/edf-tempo-HA?logo=apache&logoColor=white)](LICENSE)
@@ -12,6 +10,14 @@ Suivez facilement les couleurs **EDF Tempo** dans Home Assistant et anticipez le
 L’intégration affiche la couleur du jour, celle du lendemain dès sa publication par RTE, ainsi que l’avancement complet de la saison Tempo. Elle propose également plusieurs cartes visuelles pour retrouver toutes ces informations directement dans votre tableau de bord.
 
 > Ce projet communautaire est indépendant d’EDF, de RTE et du projet Home Assistant.
+
+## Installation en 3 minutes
+
+1. Installez **EDF Tempo** depuis HACS.
+2. Renseignez votre **ID Client** et votre **ID Secret** RTE.
+3. Ajoutez l’une des cartes EDF Tempo à votre tableau de bord.
+
+L’intégration s’occupe ensuite de récupérer et d’actualiser automatiquement les couleurs Tempo.
 
 ## Ce que vous pouvez faire
 
@@ -48,6 +54,8 @@ Les informations Tempo deviennent des entités Home Assistant classiques. Elles 
 - changer la couleur d’un éclairage ou d’un indicateur visuel.
 
 ## Aperçu
+
+> Anticipez les jours rouges, adaptez vos équipements et visualisez toute votre saison Tempo depuis Home Assistant.
 
 ### Aujourd’hui et demain
 
@@ -90,10 +98,10 @@ La couleur de demain est affichée comme inconnue tant que RTE ne l’a pas enco
 
 Quatre cartes facultatives permettent de personnaliser l’affichage :
 
-- une carte compacte pour aujourd’hui et demain ;
-- une synthèse de la saison ;
-- un calendrier couvrant toute la saison ;
-- un calendrier mensuel.
+- **EDF Tempo Quotidien** : la couleur d’aujourd’hui et celle de demain ;
+- **EDF Tempo Synthèse Saison** : les jours utilisés et restants pour chaque couleur ;
+- **Calendrier EDF Tempo** : toute la saison, avec navigation entre les années ;
+- **EDF Tempo Mensuel** : un mois à la fois, avec navigation entre les mois.
 
 Les cartes s’adaptent au thème clair ou sombre de Home Assistant et disposent d’un éditeur visuel.
 
@@ -105,9 +113,11 @@ Vous avez besoin :
 - d’un accès Internet depuis Home Assistant ;
 - d’identifiants gratuits pour l’API Tempo de RTE.
 
-Pour obtenir ces identifiants, créez une application sur [data.rte-france.org](https://data.rte-france.org/) et souscrivez-la à l’API Tempo.
+Pour obtenir gratuitement ces identifiants :
 
-L'inscription à l'API Tempo RTE se fait sur ce site : https://data.rte-france.com/catalog/-/api/consumption/Tempo-Like-Supply-Contract/v1.1
+1. [Créez votre compte sur le portail RTE](https://data.rte-france.org/).
+2. Ouvrez la page [API Tempo — Contrat de fourniture](https://data.rte-france.com/catalog/-/api/consumption/Tempo-Like-Supply-Contract/v1.1).
+3. Souscrivez à l’API Tempo et récupérez votre **ID Client** et votre **ID Secret**.
 
 ## Installation avec HACS
 
@@ -127,11 +137,7 @@ Après le redémarrage :
 1. Ouvrez **Paramètres > Appareils et services**.
 2. Sélectionnez **Ajouter une intégration**.
 3. Recherchez **EDF Tempo**.
-4. Saisissez les deux identifiants fournis par RTE.
-
-L’intégration vérifie les identifiants et commence ensuite à récupérer les informations Tempo. Une seule configuration EDF Tempo est nécessaire par installation Home Assistant.
-
-La configuration s’effectue exclusivement depuis l’interface de Home Assistant : aucune configuration YAML n’est nécessaire. Les identifiants proposés aux nouvelles entités restent entièrement gérés par Home Assistant, qui conserve les renommages et personnalisations effectués par l’utilisateur.
+4. Saisissez votre "ID Client" et votre "ID Secret" fournis par RTE lors de votre souscription à l'API Tempo.
 
 ## Ajouter les cartes visuelles
 
@@ -139,11 +145,52 @@ Les cartes sont installées et enregistrées automatiquement avec l’intégrati
 
 Si vos ressources Lovelace sont gérées manuellement en mode YAML, ajoutez `/edf_tempo/card.js?v=1.2.8` comme module JavaScript dans votre configuration.
 
+## Exemple de notification Tempo
+
+Vous pouvez créer une notification directement depuis l’éditeur graphique des automatisations de Home Assistant, sans écrire de YAML. Choisissez un déclenchement à 18 h, ajoutez la condition « EDF Tempo demain est Rouge », puis sélectionnez votre téléphone comme cible de notification.
+
+Pour les utilisateurs qui préfèrent le YAML, l’exemple suivant envoie la même notification lorsqu’un jour rouge est prévu le lendemain :
+
+<details>
+<summary>Afficher l’exemple YAML</summary>
+
+```yaml
+alias: "EDF Tempo - Alerte jour rouge demain"
+description: "Notifie à 18 h lorsqu'un jour rouge est prévu le lendemain."
+triggers:
+  - trigger: time
+    at: "18:00:00"
+
+conditions:
+  - condition: state
+    entity_id: sensor.edf_tempo_tomorrow
+    state: "red"
+
+actions:
+  - action: notify.send_message
+    target:
+      entity_id: notify.mobile_app_mon_telephone
+    data:
+      title: "EDF Tempo"
+      message: "Attention : demain est un jour rouge Tempo."
+
+mode: single
+```
+
+</details>
+
+Avant d’enregistrer cette automatisation :
+
+- remplacez `notify.mobile_app_mon_telephone` par votre propre entité de notification ;
+- vérifiez l’identifiant du capteur si vous l’avez renommé ou s’il a été créé avec une ancienne version de l’intégration ;
+- conservez la valeur technique anglaise `red`, même lorsque Home Assistant affiche l’état traduit « Rouge » ;
+- testez l’action depuis **Outils de développement > Actions**.
+
+L’action [`notify.send_message`](https://www.home-assistant.io/actions/notify.send_message/) est recommandée pour les entités de notification récentes. Certaines intégrations plus anciennes fournissent uniquement leur propre action `notify.*` : dans ce cas, sélectionnez l’action proposée par votre appareil dans l’éditeur Home Assistant.
+
 ## Données et confidentialité
 
-Les couleurs Tempo proviennent de l’API officielle de RTE. Dans Home Assistant, l’appareil est donc présenté comme une intégration communautaire et son modèle indique explicitement RTE comme source des données. Les données des saisons consultées sont conservées localement par Home Assistant afin de réduire les demandes inutiles. Si ce cache devient incomplet ou illisible, l’intégration l’ignore et le reconstruit automatiquement depuis RTE.
-
-Les diagnostics masquent les identifiants et les jetons de connexion. Le client secret est également affiché comme un mot de passe dans les formulaires et n’est jamais prérempli lors d’une reconfiguration : laissez ce champ vide pour conserver le secret actuel. Ne partagez néanmoins jamais vos identifiants RTE dans une capture d’écran, un journal ou un signalement de problème.
+Les couleurs Tempo proviennent de l’API officielle de RTE. Dans Home Assistant, l’appareil est donc présenté comme une intégration communautaire et son modèle indique explicitement RTE comme source des données. Les données des saisons consultées sont conservées localement par Home Assistant afin de réduire les demandes inutiles.
 
 ## Limites connues
 
@@ -152,17 +199,10 @@ Les diagnostics masquent les identifiants et les jetons de connexion. Le client 
 - L’enregistrement automatique des cartes nécessite le mode de gestion standard des ressources Lovelace. Le mode YAML demande une déclaration manuelle.
 - L’historique disponible commence avec la saison 2015–2016.
 
-## Signaler un problème
-
-Vous pouvez utiliser les [issues GitHub](https://github.com/andry-paris/edf-tempo-HA/issues) pour signaler un problème reproductible. Indiquez les versions de Home Assistant et de l’intégration, sans inclure de donnée confidentielle.
+## À propos du projet
 
 Ce logiciel est fourni gratuitement, sans garantie et sans engagement d’assistance individuelle. Son utilisation reste sous votre responsabilité.
 
-## Qualité et validation
-
-Chaque modification est contrôlée automatiquement avec HACS, Hassfest et les tests Python et JavaScript. Les tests des cartes simulent notamment une navigation rapide entre plusieurs saisons pour vérifier que chaque calendrier demandé est chargé sans doublon. Une matrice exécute les tests d’intégration avec la version minimale prise en charge, Home Assistant 2025.1.0, et avec la version actuelle utilisée par le projet. Ces tests utilisent les fixtures officielles de Home Assistant pour vérifier le cycle complet d’installation, de rechargement, de réauthentification et de désinstallation, ainsi que l’enregistrement des cartes dans Lovelace. Ils répètent également les installations et désinstallations après renommage des entités afin de détecter les doublons et les entrées orphelines.
-
-Les outils utilisés par ces contrôles sont figés sur des versions précises afin de garantir des validations reproductibles. Dependabot surveille leurs mises à jour et propose automatiquement les évolutions disponibles.
 
 ## Licence
 

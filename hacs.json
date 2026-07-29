@@ -1,4 +1,5 @@
 {
   "name": "EDF Tempo",
-  "country": "FR"
+  "country": "FR",
+  "homeassistant": "2025.1.0"
 }

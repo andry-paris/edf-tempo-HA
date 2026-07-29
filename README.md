@@ -143,7 +143,7 @@ Après le redémarrage :
 
 Les cartes sont installées et enregistrées automatiquement avec l’intégration. Après le redémarrage de Home Assistant, actualisez votre navigateur puis ajoutez la carte EDF Tempo souhaitée depuis l’éditeur du tableau de bord. La ressource Lovelace créée automatiquement est supprimée lors de la désinstallation définitive de l’intégration.
 
-Si vos ressources Lovelace sont gérées manuellement en mode YAML, ajoutez `/edf_tempo/card.js?v=1.2.8` comme module JavaScript dans votre configuration.
+Si vos ressources Lovelace sont gérées manuellement en mode YAML, ajoutez `/edf_tempo/card.js?v=1.2.9` comme module JavaScript dans votre configuration.
 
 ## Exemple de notification Tempo
 

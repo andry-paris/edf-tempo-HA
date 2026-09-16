@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 import unittest
+from unittest.mock import patch
 
 from tests._ha_stubs import install
 
@@ -16,6 +18,7 @@ from custom_components.edf_tempo.api import (
     TempoDayData,
     TempoSeasonSummaryData,
 )
+from custom_components.edf_tempo.const import PARIS_TIME_ZONE
 from custom_components.edf_tempo.sensor import (
     EdfTempoSensor,
     SENSORS,
@@ -24,9 +27,16 @@ from custom_components.edf_tempo.sensor import (
 
 
 class _Coordinator:
-    def __init__(self, today_code: str | None, tomorrow_code: str | None) -> None:
+    def __init__(
+        self,
+        today_code: str | None,
+        tomorrow_code: str | None,
+        *,
+        today_date: str = "2026-07-26",
+    ) -> None:
+        self.last_update_success = True
         self.data = TempoCalendarData(
-            today=TempoDayData("2026-07-26", today_code, None, False, None),
+            today=TempoDayData(today_date, today_code, None, False, None),
             tomorrow=TempoDayData("2026-07-27", tomorrow_code, None, False, None),
             season_summary=TempoSeasonSummaryData(
                 season_start="2025-09-01",
@@ -38,6 +48,18 @@ class _Coordinator:
             ),
             fetched_at="2026-07-26T10:40:00+02:00",
         )
+
+
+class _FrozenDateTime(datetime):
+    """Datetime subclass whose current time can be pinned by tests."""
+
+    fixed_now: datetime
+
+    @classmethod
+    def now(cls, tz=None):
+        if tz is None:
+            return cls.fixed_now
+        return cls.fixed_now.astimezone(tz)
 
 
 class EdfTempoSensorTests(unittest.TestCase):
@@ -64,6 +86,50 @@ class EdfTempoSensorTests(unittest.TestCase):
         coordinator = _Coordinator("BLUE", "RED")
         self.assertEqual(self._sensor("today", coordinator).native_value, "blue")
         self.assertEqual(self._sensor("tomorrow", coordinator).native_value, "red")
+
+    def test_current_snapshot_is_available_after_success(self) -> None:
+        """A successful snapshot for the current Paris date is available."""
+        coordinator = _Coordinator("BLUE", "RED")
+        _FrozenDateTime.fixed_now = datetime(
+            2026, 7, 26, 18, 0, tzinfo=PARIS_TIME_ZONE
+        )
+
+        with patch("custom_components.edf_tempo.sensor.datetime", _FrozenDateTime):
+            self.assertTrue(self._sensor("today", coordinator).available)
+
+    def test_current_snapshot_stays_available_during_same_day_failure(self) -> None:
+        """A transient failure does not hide data that is still valid today."""
+        coordinator = _Coordinator("BLUE", "RED")
+        coordinator.last_update_success = False
+        _FrozenDateTime.fixed_now = datetime(
+            2026, 7, 26, 23, 59, tzinfo=PARIS_TIME_ZONE
+        )
+
+        with patch("custom_components.edf_tempo.sensor.datetime", _FrozenDateTime):
+            self.assertTrue(self._sensor("today", coordinator).available)
+
+    def test_previous_day_snapshot_becomes_unavailable_after_midnight(self) -> None:
+        """A prolonged failure must not expose yesterday's snapshot as current."""
+        coordinator = _Coordinator("BLUE", "RED")
+        coordinator.last_update_success = False
+        _FrozenDateTime.fixed_now = datetime(
+            2026, 7, 27, 0, 0, tzinfo=PARIS_TIME_ZONE
+        )
+
+        with patch("custom_components.edf_tempo.sensor.datetime", _FrozenDateTime):
+            self.assertFalse(self._sensor("today", coordinator).available)
+
+    def test_sensor_without_an_initial_snapshot_is_unavailable(self) -> None:
+        """No entity is available before the first successful data refresh."""
+        coordinator = _Coordinator("BLUE", "RED")
+        coordinator.data = None
+        coordinator.last_update_success = False
+        _FrozenDateTime.fixed_now = datetime(
+            2026, 7, 26, 12, 0, tzinfo=PARIS_TIME_ZONE
+        )
+
+        with patch("custom_components.edf_tempo.sensor.datetime", _FrozenDateTime):
+            self.assertFalse(self._sensor("today", coordinator).available)
 
     def test_entity_id_is_suggested_but_not_forced(self) -> None:
         """Home Assistant should use a language-independent suggested entity ID."""

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -33,6 +34,7 @@ from .const import (
     ATTR_WHITE_TOTAL,
     DEFAULT_NAME,
     DOMAIN,
+    PARIS_TIME_ZONE,
 )
 from .coordinator import EdfTempoDataUpdateCoordinator
 
@@ -132,6 +134,16 @@ class EdfTempoSensor(CoordinatorEntity[EdfTempoDataUpdateCoordinator], SensorEnt
         used when a French installation creates the entity registry entry.
         """
         return self.entity_description.key
+
+    @property
+    def available(self) -> bool:
+        """Keep the current day's snapshot available during transient failures."""
+        data = self.coordinator.data
+        return (
+            data is not None
+            and data.today.date
+            == datetime.now(PARIS_TIME_ZONE).date().isoformat()
+        )
 
     @property
     def native_value(self) -> str | int:

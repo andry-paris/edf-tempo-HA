@@ -2,19 +2,25 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from homeassistant.config_entries import (
     ConfigEntryState,
     SOURCE_REAUTH,
     SOURCE_RECONFIGURE,
 )
+from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.edf_tempo.api import (
+    EdfTempoApiError,
+    EdfTempoAuthError,
     TempoCalendarData,
     TempoDayData,
     TempoSeasonSummaryData,
@@ -23,6 +29,7 @@ from custom_components.edf_tempo.const import (
     CONF_CLIENT_ID,
     CONF_CLIENT_SECRET,
     DOMAIN,
+    PARIS_TIME_ZONE,
 )
 from custom_components.edf_tempo.coordinator import EdfTempoDataUpdateCoordinator
 
@@ -69,11 +76,120 @@ MOCK_DATA = TempoCalendarData(
 )
 
 
+class _FrozenDateTime(datetime):
+    """Datetime subclass whose current time can be moved during a test."""
+
+    fixed_now: datetime
+
+    @classmethod
+    def now(cls, tz=None):
+        if tz is None:
+            return cls.fixed_now.replace(tzinfo=None)
+        return cls.fixed_now.astimezone(tz)
+
+
 async def _mock_first_refresh(
     coordinator: EdfTempoDataUpdateCoordinator,
 ) -> None:
     """Provide deterministic coordinator data without contacting RTE."""
     coordinator.async_set_updated_data(MOCK_DATA)
+
+
+@pytest.mark.parametrize(
+    "failure_after_midnight",
+    [
+        EdfTempoApiError("RTE still unavailable"),
+        EdfTempoAuthError("Authentication failed"),
+    ],
+    ids=["api-error", "authentication-error"],
+)
+async def test_snapshot_expires_after_consecutive_failure_crosses_midnight(
+    hass: HomeAssistant,
+    failure_after_midnight: Exception,
+) -> None:
+    """The stored HA state must become unavailable after the snapshot expires."""
+    _FrozenDateTime.fixed_now = datetime(
+        2026, 7, 27, 23, 55, tzinfo=PARIS_TIME_ZONE
+    )
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="EDF Tempo",
+        data=OLD_CREDENTIALS,
+        unique_id=DOMAIN,
+    )
+    entry.add_to_hass(hass)
+
+    with (
+        patch.object(
+            EdfTempoDataUpdateCoordinator,
+            "async_config_entry_first_refresh",
+            _mock_first_refresh,
+        ),
+        patch("custom_components.edf_tempo.coordinator.datetime", _FrozenDateTime),
+        patch("custom_components.edf_tempo.sensor.datetime", _FrozenDateTime),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        coordinator = hass.data[DOMAIN][entry.entry_id]
+        assert hass.states.get("sensor.edf_tempo_today").state == "blue"
+        assert all(
+            hass.states.get(entity_id).state != STATE_UNAVAILABLE
+            for entity_id in ENTITY_IDS
+        )
+
+        with patch.object(
+            coordinator.client,
+            "async_get_tempo_days",
+            new=AsyncMock(
+                side_effect=[
+                    EdfTempoApiError("RTE unavailable"),
+                    failure_after_midnight,
+                    failure_after_midnight,
+                ]
+            ),
+        ):
+            # The first failure notifies entities, but today's snapshot is
+            # still valid and must remain visible before Paris midnight.
+            await coordinator.async_refresh()
+            await hass.async_block_till_done()
+            assert hass.states.get("sensor.edf_tempo_today").state == "blue"
+            assert all(
+                hass.states.get(entity_id).state != STATE_UNAVAILABLE
+                for entity_id in ENTITY_IDS
+            )
+
+            # An authentication failure follows the API failure after the
+            # retained snapshot has expired. Verify the state stored by Home
+            # Assistant, not only the entity's Python `available` property.
+            _FrozenDateTime.fixed_now = datetime(
+                2026, 7, 28, 0, 0, tzinfo=PARIS_TIME_ZONE
+            )
+            await coordinator.async_refresh()
+            await hass.async_block_till_done()
+            assert all(
+                hass.states.get(entity_id).state == STATE_UNAVAILABLE
+                for entity_id in ENTITY_IDS
+            )
+
+            # Further failures must not rewrite the already unavailable
+            # entities every five minutes.
+            unavailable_last_updated = {
+                entity_id: hass.states.get(entity_id).last_updated
+                for entity_id in ENTITY_IDS
+            }
+            _FrozenDateTime.fixed_now = datetime(
+                2026, 7, 28, 0, 5, tzinfo=PARIS_TIME_ZONE
+            )
+            await coordinator.async_refresh()
+            await hass.async_block_till_done()
+            assert {
+                entity_id: hass.states.get(entity_id).last_updated
+                for entity_id in ENTITY_IDS
+            } == unavailable_last_updated
+
+        await hass.config_entries.async_remove(entry.entry_id)
+        await hass.async_block_till_done()
 
 
 async def test_entity_ids_remain_english_with_french_language(
@@ -109,6 +225,9 @@ async def test_entity_ids_remain_english_with_french_language(
 
 async def test_install_reload_reauth_uninstall(hass: HomeAssistant) -> None:
     """Exercise the complete config entry lifecycle with real HA services."""
+    _FrozenDateTime.fixed_now = datetime(
+        2026, 7, 27, 11, 0, tzinfo=PARIS_TIME_ZONE
+    )
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="EDF Tempo",
@@ -127,6 +246,7 @@ async def test_install_reload_reauth_uninstall(hass: HomeAssistant) -> None:
             "custom_components.edf_tempo.config_flow.EdfTempoClient.async_validate_credentials",
             new=AsyncMock(return_value=None),
         ),
+        patch("custom_components.edf_tempo.sensor.datetime", _FrozenDateTime),
     ):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()

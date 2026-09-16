@@ -83,7 +83,12 @@ def install() -> None:
         def __init__(self) -> None:
             self.data = {}
 
+    def callback(func):
+        """Stub Home Assistant callback decorator."""
+        return func
+
     core.HomeAssistant = HomeAssistant
+    core.callback = callback
     sys.modules["homeassistant.core"] = core
 
     exceptions = types.ModuleType("homeassistant.exceptions")

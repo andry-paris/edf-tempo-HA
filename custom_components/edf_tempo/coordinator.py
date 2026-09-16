@@ -6,7 +6,7 @@ from datetime import datetime, time, timedelta
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -29,6 +29,8 @@ from .season_cache import EdfTempoSeasonCache, TempoSeasonCacheEntry, build_cach
 
 _LOGGER = logging.getLogger(__name__)
 
+API_RETRY_INTERVAL = timedelta(minutes=5)
+
 
 class EdfTempoDataUpdateCoordinator(DataUpdateCoordinator[TempoCalendarData]):
     """Coordinate EDF Tempo API updates."""
@@ -46,7 +48,7 @@ class EdfTempoDataUpdateCoordinator(DataUpdateCoordinator[TempoCalendarData]):
             _LOGGER,
             config_entry=config_entry,
             name=DOMAIN,
-            update_interval=timedelta(minutes=5),
+            update_interval=API_RETRY_INTERVAL,
             always_update=False,
         )
         self.client = client
@@ -55,6 +57,8 @@ class EdfTempoDataUpdateCoordinator(DataUpdateCoordinator[TempoCalendarData]):
         self._overnight_baseline: TempoCalendarData | None = None
         self._midday_baseline_date: str | None = None
         self._midday_baseline: TempoCalendarData | None = None
+        self._expired_snapshot_notified = False
+        self._refresh_started_after_failure = False
 
     async def _async_setup(self) -> None:
         """Validate credentials before the first refresh."""
@@ -70,7 +74,11 @@ class EdfTempoDataUpdateCoordinator(DataUpdateCoordinator[TempoCalendarData]):
 
     async def _async_update_data(self) -> TempoCalendarData:
         """Fetch data from the EDF Tempo API."""
-        previous_data = self.data if self.last_update_success else None
+        self._refresh_started_after_failure = not self.last_update_success
+        # DataUpdateCoordinator keeps the last successful payload after an
+        # update failure. Reuse it so the recovery refresh can still detect a
+        # publication change and restore the correct window schedule.
+        previous_data = self.data
         _LOGGER.debug("Refreshing EDF Tempo coordinator data")
         try:
             day_window = await self.client.async_get_tempo_days()
@@ -88,7 +96,14 @@ class EdfTempoDataUpdateCoordinator(DataUpdateCoordinator[TempoCalendarData]):
             _LOGGER.warning("EDF Tempo authentication failed during data refresh")
             raise ConfigEntryAuthFailed from err
         except EdfTempoApiError as err:
-            _LOGGER.warning("EDF Tempo data refresh failed: %s", err)
+            # Window-based intervals can span several hours; use the initial
+            # five-minute cadence until the API succeeds and recomputes them.
+            self.update_interval = API_RETRY_INTERVAL
+            _LOGGER.warning(
+                "EDF Tempo data refresh failed; retrying in %s seconds: %s",
+                int(API_RETRY_INTERVAL.total_seconds()),
+                err,
+            )
             raise UpdateFailed(f"Unable to fetch Tempo data: {err}") from err
 
         self.update_interval = self._compute_next_update_interval(data, previous_data)
@@ -100,6 +115,27 @@ class EdfTempoDataUpdateCoordinator(DataUpdateCoordinator[TempoCalendarData]):
         )
 
         return data
+
+    @callback
+    def _async_refresh_finished(self) -> None:
+        """Handle snapshot availability after a coordinator refresh."""
+        if self.last_update_success:
+            self._expired_snapshot_notified = False
+            return
+
+        if (
+            self._expired_snapshot_notified
+            or self.data is None
+            or self.data.today.date
+            == datetime.now(PARIS_TIME_ZONE).date().isoformat()
+        ):
+            return
+
+        self._expired_snapshot_notified = True
+        # Home Assistant notifies listeners itself on the first failure. It
+        # skips them after consecutive failures, so only fill that gap here.
+        if self._refresh_started_after_failure:
+            self.async_update_listeners()
 
     async def _async_get_current_season_summary(self, today, tomorrow):
         """Return the current season summary using cache-first logic."""

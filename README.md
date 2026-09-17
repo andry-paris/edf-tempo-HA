@@ -9,6 +9,10 @@ Suivez facilement les couleurs **EDF Tempo** dans Home Assistant et anticipez le
 
 L’intégration affiche la couleur du jour, celle du lendemain dès sa publication par RTE, ainsi que l’avancement complet de la saison Tempo. Elle propose également plusieurs cartes visuelles pour retrouver toutes ces informations directement dans votre tableau de bord.
 
+Son rôle est de restituer dans Home Assistant les données fournies par l’API officielle de RTE. Elle
+ne constitue pas une source tarifaire indépendante et n’applique pas ses propres règles pour
+valider, interpréter ou corriger les couleurs publiées par RTE.
+
 > Ce projet communautaire est indépendant d’EDF, de RTE et du projet Home Assistant.
 
 ## Installation en 3 minutes
@@ -190,11 +194,16 @@ L’action [`notify.send_message`](https://www.home-assistant.io/actions/notify.
 
 ## Données et confidentialité
 
-Les couleurs Tempo proviennent de l’API officielle de RTE. Dans Home Assistant, l’appareil est donc présenté comme une intégration communautaire et son modèle indique explicitement RTE comme source des données. Les données des saisons consultées sont conservées localement par Home Assistant afin de réduire les demandes inutiles.
+Les couleurs Tempo proviennent de l’API officielle de RTE et sont restituées sans correction métier
+locale. Dans Home Assistant, l’appareil est donc présenté comme une intégration communautaire et
+son modèle indique explicitement RTE comme source des données. Les données des saisons consultées
+sont conservées localement par Home Assistant afin de réduire les demandes inutiles.
 
 ## Limites connues
 
 - La disponibilité de la couleur du lendemain dépend de sa publication par RTE.
+- L’intégration ne contrôle pas la conformité des couleurs Tempo et ne corrige pas les éventuelles
+  incohérences présentes dans les données historiques ou courantes de RTE.
 - L’intégration présente les couleurs Tempo, mais pas les tarifs particuliers de votre contrat.
 - L’enregistrement automatique des cartes nécessite le mode de gestion standard des ressources Lovelace. Le mode YAML demande une déclaration manuelle.
 - L’historique disponible commence avec la saison 2015–2016.

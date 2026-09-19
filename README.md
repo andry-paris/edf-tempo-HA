@@ -7,6 +7,8 @@
 
 Suivez facilement les couleurs **EDF Tempo** dans Home Assistant et anticipez les jours où votre consommation d’électricité mérite une attention particulière.
 
+Consultez le [journal des modifications](CHANGELOG.md) pour retrouver l’historique des évolutions.
+
 L’intégration affiche la couleur du jour, celle du lendemain dès sa publication par RTE, ainsi que l’avancement complet de la saison Tempo. Elle propose également plusieurs cartes visuelles pour retrouver toutes ces informations directement dans votre tableau de bord.
 
 Son rôle est de restituer dans Home Assistant les données fournies par l’API officielle de RTE. Elle

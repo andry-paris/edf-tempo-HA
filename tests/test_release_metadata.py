@@ -23,6 +23,7 @@ class EdfTempoReleaseMetadataTests(unittest.TestCase):
         version = manifest["version"]
         const_source = (INTEGRATION_DIR / "const.py").read_text(encoding="utf-8")
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
 
         match = re.search(
             r'^INTEGRATION_VERSION = "([^"]+)"$', const_source, re.MULTILINE
@@ -30,6 +31,7 @@ class EdfTempoReleaseMetadataTests(unittest.TestCase):
         self.assertIsNotNone(match)
         self.assertEqual(match.group(1), version)
         self.assertIn(f"/edf_tempo/card.js?v={version}", readme)
+        self.assertIn(f"## [{version}]", changelog)
 
     def test_hacs_and_home_assistant_metadata_are_complete(self) -> None:
         """Required HACS and Home Assistant release metadata must be present."""
@@ -56,6 +58,7 @@ class EdfTempoReleaseMetadataTests(unittest.TestCase):
     def test_public_release_assets_exist(self) -> None:
         """A release must contain its card, translations, icons and legal files."""
         required_paths = (
+            ROOT / "CHANGELOG.md",
             ROOT / "LICENSE",
             ROOT / "NOTICE",
             ROOT / "README.md",

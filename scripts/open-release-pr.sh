@@ -68,6 +68,7 @@ Prépare la release EDF Tempo $version.
 
 - met à jour la version du manifeste vers $version ;
 - synchronise la constante interne de version ;
+- transforme les changements non publiés en entrée datée du changelog ;
 - actualise l’URL versionnée de la carte Lovelace dans le README.
 
 ## Validation

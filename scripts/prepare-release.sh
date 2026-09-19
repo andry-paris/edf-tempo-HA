@@ -54,13 +54,14 @@ fi
 
 git switch -c "$release_branch"
 
-python3 - "$current_version" "$version" <<'PY'
+release_date="$(date +%F)"
+python3 - "$current_version" "$version" "$release_date" <<'PY'
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-old_version, new_version = sys.argv[1:]
+old_version, new_version, release_date = sys.argv[1:]
 
 
 def replace_exact(path: str, old: str, new: str, expected: int = 1) -> None:
@@ -89,6 +90,19 @@ replace_exact(
     f"/edf_tempo/card.js?v={old_version}",
     f"/edf_tempo/card.js?v={new_version}",
 )
+replace_exact(
+    "CHANGELOG.md",
+    "## Non publié\n",
+    f"## Non publié\n\n## [{new_version}] — {release_date}\n",
+)
+replace_exact(
+    "CHANGELOG.md",
+    f"[{old_version}]: https://github.com/andry-paris/edf-tempo-HA/releases/tag/v{old_version}",
+    (
+        f"[{new_version}]: https://github.com/andry-paris/edf-tempo-HA/releases/tag/v{new_version}\n"
+        f"[{old_version}]: https://github.com/andry-paris/edf-tempo-HA/releases/tag/v{old_version}"
+    ),
+)
 
 private_readme = Path("README.private.md")
 if private_readme.is_file():
@@ -109,7 +123,7 @@ python3 -m unittest discover -s tests -v
 node --test tests_js/*.test.js
 git diff --check
 
-git add README.md custom_components/edf_tempo/const.py custom_components/edf_tempo/manifest.json
+git add CHANGELOG.md README.md custom_components/edf_tempo/const.py custom_components/edf_tempo/manifest.json
 git commit -m "Prepare version $version"
 
 echo

@@ -64,6 +64,11 @@ function edfTempoCardText(hass, key) {
   return EDF_TEMPO_CARD_TRANSLATIONS[language][key] || key;
 }
 
+function edfTempoDailyColumns(value) {
+  const parsed = Number.parseInt(String(value ?? 2), 10);
+  return Number.isNaN(parsed) ? 2 : Math.min(2, Math.max(1, parsed));
+}
+
 class EdfTempoCardEditor extends HTMLElement {
   set hass(hass) {
     this._hass = hass;
@@ -100,6 +105,7 @@ class EdfTempoCardEditor extends HTMLElement {
       title: config.title || "EDF Tempo",
       today_entity: this._resolveTodayEntity(config.today_entity),
       tomorrow_entity: this._resolveTomorrowEntity(config.tomorrow_entity),
+      columns: edfTempoDailyColumns(config.columns),
     };
 
     if (this._isSameConfig(this._config, nextConfig)) {
@@ -166,6 +172,10 @@ class EdfTempoCardEditor extends HTMLElement {
           <label for="tomorrow_entity">${edfTempoCardText(this._hass, "daily_tomorrow_entity")}</label>
           <ha-entity-picker id="tomorrow_entity"></ha-entity-picker>
         </div>
+        <div class="field">
+          <label for="columns">${edfTempoCardText(this._hass, "columns")}</label>
+          <input id="columns" type="number" min="1" max="2" step="1" value="${this._config.columns}" />
+        </div>
       </div>
     `;
 
@@ -186,7 +196,7 @@ class EdfTempoCardEditor extends HTMLElement {
 
   _handleInput(event) {
     const target = event.target;
-    if (!target?.id || !["title", "today_entity", "tomorrow_entity"].includes(target.id)) {
+    if (!target?.id || !["title", "today_entity", "tomorrow_entity", "columns"].includes(target.id)) {
       return;
     }
 
@@ -195,7 +205,7 @@ class EdfTempoCardEditor extends HTMLElement {
     const nextConfig = {
       ...this._config,
       type: "custom:edf-tempo-card",
-      [target.id]: String(value).trim(),
+      [target.id]: target.id === "columns" ? edfTempoDailyColumns(value) : String(value).trim(),
     };
 
     this._config = nextConfig;
@@ -243,7 +253,8 @@ class EdfTempoCardEditor extends HTMLElement {
       currentConfig?.type === nextConfig.type &&
       currentConfig?.title === nextConfig.title &&
       currentConfig?.today_entity === nextConfig.today_entity &&
-      currentConfig?.tomorrow_entity === nextConfig.tomorrow_entity
+      currentConfig?.tomorrow_entity === nextConfig.tomorrow_entity &&
+      currentConfig?.columns === nextConfig.columns
     );
   }
 
@@ -267,6 +278,7 @@ class EdfTempoCard extends HTMLElement {
       title: "EDF Tempo",
       today_entity: "sensor.edf_tempo_today",
       tomorrow_entity: "sensor.edf_tempo_tomorrow",
+      columns: 2,
     };
   }
 
@@ -291,6 +303,7 @@ class EdfTempoCard extends HTMLElement {
       title: config.title || "EDF Tempo",
       today_entity: todayEntity,
       tomorrow_entity: tomorrowEntity,
+      columns: edfTempoDailyColumns(config.columns),
     };
 
     this._render();
@@ -306,7 +319,7 @@ class EdfTempoCard extends HTMLElement {
   }
 
   getCardSize() {
-    return 2;
+    return this._config?.columns === 1 ? 4 : 2;
   }
 
   _computeSignature() {
@@ -407,7 +420,7 @@ class EdfTempoCard extends HTMLElement {
         .grid {
           display: grid;
           gap: 14px;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-columns: repeat(${this._config.columns}, minmax(0, 1fr));
         }
 
         .panel {

@@ -44,7 +44,12 @@ function loadCardClasses(language = "fr-FR") {
 
   const context = vm.createContext({
     console,
-    CustomEvent: class CustomEvent {},
+    CustomEvent: class CustomEvent {
+      constructor(type, options) {
+        this.type = type;
+        Object.assign(this, options);
+      }
+    },
     Date,
     HTMLElement: FakeHTMLElement,
     Intl,
@@ -75,6 +80,7 @@ function loadCardClasses(language = "fr-FR") {
   vm.runInContext(fs.readFileSync(cardPath, "utf8"), context, { filename: cardPath });
 
   return {
+    DailyCard: registeredElements.get("edf-tempo-card"),
     DailyEditor: registeredElements.get("edf-tempo-card-editor"),
     MonthCard: registeredElements.get("edf-tempo-month-card"),
     MonthEditor: registeredElements.get("edf-tempo-month-card-editor"),
@@ -106,6 +112,45 @@ function fakeHass(requests) {
     },
   };
 }
+
+test("daily column choice survives editor changes and updates card layout", () => {
+  const { DailyCard, DailyEditor } = loadCardClasses();
+  const card = new DailyCard();
+  const editor = new DailyEditor();
+  editor.setConfig({ title: "Tempo" });
+  card.setConfig(editor._config);
+  assert.equal(card._config.columns, 2);
+  assert.match(card.shadowRoot.innerHTML, /grid-template-columns: repeat\(2,/);
+
+  let emitted;
+  editor.dispatchEvent = (event) => { emitted = event; };
+  editor._handleInput({ target: { id: "columns", value: "1" } });
+  assert.equal(emitted.type, "config-changed");
+  assert.equal(emitted.detail.config.columns, 1);
+  editor.setConfig(emitted.detail.config);
+  editor._handleInput({ target: { id: "title", value: "Mon Tempo" } });
+  assert.equal(emitted.detail.config.columns, 1);
+  card.setConfig(emitted.detail.config);
+  assert.match(card.shadowRoot.innerHTML, /grid-template-columns: repeat\(1,/);
+  assert.equal(card.getCardSize(), 4);
+
+  editor.setConfig({ ...emitted.detail.config, columns: 2 });
+  assert.match(editor.shadowRoot.innerHTML, /id="columns"[^>]*value="2"/);
+  card.setConfig(editor._config);
+  assert.match(card.shadowRoot.innerHTML, /grid-template-columns: repeat\(2,/);
+  assert.equal(card.getCardSize(), 2);
+});
+
+test("daily card and editor keep YAML column values within one or two", () => {
+  const { DailyCard, DailyEditor } = loadCardClasses();
+  for (const [value, expected] of [[undefined, 2], [1, 1], ["2", 2], [0, 1], [3, 2], ["invalid", 2]]) {
+    for (const Element of [DailyCard, DailyEditor]) {
+      const element = new Element();
+      element.setConfig({ columns: value });
+      assert.equal(element._config.columns, expected);
+    }
+  }
+});
 
 test("entity-based card editors use Home Assistant sensor pickers", () => {
   const { DailyEditor, SeasonEditor } = loadCardClasses();

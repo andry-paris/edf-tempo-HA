@@ -65,6 +65,12 @@ Les informations Tempo deviennent des entités Home Assistant classiques. Elles 
 
 ### Aujourd’hui et demain
 
+Les deux jours s’affichent côte à côte par défaut. Le champ **Colonnes** de l’éditeur permet de
+choisir **1** (jours empilés) ou **2** (jours côte à côte), également configurable en YAML avec
+`columns: 1` ou `columns: 2`. Le choix reste identique quelle que soit la largeur de l’écran.
+L’affichage sur deux colonnes a été validé avec une largeur de carte de **300 px** ; en dessous,
+le rendu n’est pas garanti.
+
 | Thème Home Assistant | Thème Frosted |
 |---|---|
 | ![Carte EDF Tempo pour aujourd’hui et demain avec le thème Home Assistant](docs/screenshots/Carte-EDF%20Tempo-26-27-Juillet-2026-HA-Theme.png) | ![Carte EDF Tempo pour aujourd’hui et demain avec le thème Frosted](docs/screenshots/Carte-EDF%20Tempo-26-27-Juillet-2026-Frosted-Theme.png) |

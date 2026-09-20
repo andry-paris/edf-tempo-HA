@@ -7,6 +7,12 @@ versions identifiables. Elles ne sont donc pas reconstituées artificiellement d
 
 ## Non publié
 
+### Corrigé
+
+- Suppression du basculement automatique des blocs Aujourd’hui et Demain en une colonne sous
+  640 px, avec retour à la ligne du texte lorsque la largeur disponible est insuffisante
+  ([#12](https://github.com/andry-paris/edf-tempo-HA/issues/12)).
+
 ### Ajouté
 
 - Scripts locaux pour préparer une version, synchroniser ses métadonnées, exécuter les tests et

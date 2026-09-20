@@ -417,6 +417,8 @@ class EdfTempoCard extends HTMLElement {
           display: flex;
           flex-direction: column;
           min-height: 220px;
+          min-width: 0;
+          overflow-wrap: anywhere;
           padding: 18px 18px 20px;
           position: relative;
           text-align: center;
@@ -424,10 +426,12 @@ class EdfTempoCard extends HTMLElement {
 
         .label {
           border-radius: 999px;
+          box-sizing: border-box;
           display: inline-flex;
           font-size: 0.76rem;
           font-weight: 800;
           letter-spacing: 0.08em;
+          max-width: 100%;
           padding: 6px 12px;
           text-transform: uppercase;
         }
@@ -437,6 +441,7 @@ class EdfTempoCard extends HTMLElement {
           display: grid;
           gap: 3px;
           margin-top: 18px;
+          max-width: 100%;
           justify-items: center;
         }
 
@@ -514,11 +519,6 @@ class EdfTempoCard extends HTMLElement {
           color: var(--tempo-text-dark);
         }
 
-        @media (max-width: 640px) {
-          .grid {
-            grid-template-columns: 1fr;
-          }
-        }
       </style>
       <ha-card>
         <div class="card">

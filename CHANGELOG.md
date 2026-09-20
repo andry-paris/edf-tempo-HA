@@ -19,6 +19,8 @@ versions identifiables. Elles ne sont donc pas reconstituées artificiellement d
 
 ### Ajouté
 
+- Choix des jours affichés dans la carte EDF Tempo : aujourd’hui, demain ou les deux. Un seul
+  jour utilise toute la largeur ; les préférences de colonnes et d’horodatages sont conservées.
 - Affichage facultatif de la mise à jour RTE pour demain et de la dernière récupération réussie,
   sous le titre ou sous les jours. Ajout de `fetched_at` aux attributs du capteur Demain.
   Les anciens horodatages ne sont pas affichés lorsque le capteur devient indisponible.

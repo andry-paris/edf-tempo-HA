@@ -65,11 +65,17 @@ Les informations Tempo deviennent des entités Home Assistant classiques. Elles 
 
 ### Aujourd’hui et demain
 
+Le champ **Jours à afficher** permet de choisir **Aujourd’hui et demain** (par défaut),
+**Aujourd’hui uniquement** ou **Demain uniquement**. En YAML, utilisez `display_days: both`,
+`display_days: today` ou `display_days: tomorrow`. Il n’est pas possible de masquer les deux jours.
+
 Les deux jours s’affichent côte à côte par défaut. Le champ **Colonnes** de l’éditeur permet de
 choisir **1** (jours empilés) ou **2** (jours côte à côte), également configurable en YAML avec
 `columns: 1` ou `columns: 2`. Le choix reste identique quelle que soit la largeur de l’écran.
 L’affichage sur deux colonnes a été validé avec une largeur de carte de **300 px** ; en dessous,
 le rendu n’est pas garanti.
+Lorsqu’un seul jour est affiché, il occupe toute la largeur sur une colonne. Le réglage Colonnes
+est alors désactivé ; la préférence est conservée pour le retour à l’affichage des deux jours.
 
 Le réglage **Demain : informations de mise à jour** permet d’afficher deux lignes discrètes
 sous le titre ou sous les deux jours : la mise à jour côté RTE pour demain et la dernière
@@ -79,6 +85,8 @@ utilisez `update_info: top` (sous le titre), `update_info: bottom` (sous les jou
 sans appel supplémentaire à RTE. Une date absente ou invalide est indiquée comme **Non disponible** ;
 si le capteur Demain devient indisponible, les deux anciens horodatages sont masqués et remplacés
 par cette mention.
+Ces informations sont masquées et leur réglage désactivé lorsque seul Aujourd’hui est affiché.
+Le choix précédent est conservé pour le retour à un affichage incluant Demain.
 
 En mode deux colonnes, les libellés Aujourd’hui et Demain partagent la même hauteur pour maintenir
 les dates et les couleurs alignées lorsque l’un des libellés passe sur plusieurs lignes.

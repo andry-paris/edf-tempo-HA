@@ -20,4 +20,5 @@ views:
         today_entity: sensor.edf_tempo_today
         tomorrow_entity: sensor.edf_tempo_tomorrow
         columns: 2
+        display_days: both
         update_info: hidden

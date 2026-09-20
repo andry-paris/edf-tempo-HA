@@ -229,6 +229,42 @@ test("daily editor keeps the open selector intact and saves its first selection"
   assert.equal(editor.shadowRoot.querySelector("#tomorrow_entity").hass, editor._hass);
 });
 
+test("day selection enforces a non-empty layout and preserves editor preferences", () => {
+  const { DailyCard, DailyEditor } = loadCardClasses();
+  const editor = new DailyEditor();
+  const card = new DailyCard();
+  editor.setConfig({ columns: 2, update_info: "bottom" });
+  editor.dispatchEvent = event => {
+    editor.setConfig(event.detail.config);
+    card.setConfig(event.detail.config);
+  };
+  for (const days of ["today", "tomorrow", "both"]) {
+    editor.shadowRoot.dispatchEvent({ type: "change", target: { id: "display_days", value: days } });
+    const html = card.shadowRoot.innerHTML;
+    const columns = editor.shadowRoot.querySelector("#columns");
+    const info = editor.shadowRoot.querySelector("#update_info");
+    assert.equal((html.match(/<section class="panel /g) || []).length, days === "both" ? 2 : 1);
+    assert.equal(html.includes('<div class="label">Today</div>'), days !== "tomorrow");
+    assert.equal(html.includes('<div class="label">Tomorrow</div>'), days !== "today");
+    assert.equal(html.includes('<div class="update-info'), days !== "today");
+    assert.equal(columns.disabled, days !== "both");
+    assert.equal(columns.value, days === "both" ? 2 : 1);
+    assert.equal(info.disabled, days === "today");
+    assert.equal(info.value, days === "today" ? "hidden" : "bottom");
+    assert.equal(card._config.columns, 2);
+    assert.match(html, days === "both" ? /repeat\(2, minmax/ : /repeat\(1, minmax/);
+  }
+  for (const value of [undefined, null, "none", [], false]) {
+    card.setConfig({ display_days: value });
+    assert.equal(card._config.display_days, "both");
+    assert.equal((card.shadowRoot.innerHTML.match(/<section class="panel /g) || []).length, 2);
+  }
+  card.setConfig({ display_days: "today", columns: 1 });
+  assert.equal(card.getCardSize(), 2);
+  card.setConfig({ display_days: "both", columns: 1 });
+  assert.equal(card.getCardSize(), 4);
+});
+
 test("entity-based card editors use Home Assistant sensor pickers", () => {
   const { DailyEditor, SeasonEditor } = loadCardClasses();
   const hass = {
@@ -290,6 +326,9 @@ test("card editors expose explicit French labels", () => {
   assert.match(dailyEditor.shadowRoot.innerHTML, />Titre</);
   assert.match(dailyEditor.shadowRoot.innerHTML, />Entité d'aujourd'hui</);
   assert.match(dailyEditor.shadowRoot.innerHTML, />Entité de demain</);
+  for (const label of ["Jours à afficher", "Aujourd’hui et demain", "Aujourd’hui uniquement", "Demain uniquement"]) {
+    assert.ok(dailyEditor.shadowRoot.innerHTML.includes(`>${label}<`));
+  }
 
   const seasonEditor = new SeasonEditor();
   seasonEditor.setConfig({});
@@ -333,6 +372,9 @@ test("card editors and season content are fully localized in English", () => {
   assert.match(dailyEditor.shadowRoot.innerHTML, />Today's entity</);
   assert.match(dailyEditor.shadowRoot.innerHTML, />Tomorrow's entity</);
   for (const label of ["Columns", "Tomorrow: update information", "Hidden", "Below the title", "Below the days"]) {
+    assert.ok(dailyEditor.shadowRoot.innerHTML.includes(`>${label}<`));
+  }
+  for (const label of ["Days to display", "Today and tomorrow", "Today only", "Tomorrow only"]) {
     assert.ok(dailyEditor.shadowRoot.innerHTML.includes(`>${label}<`));
   }
   assert.doesNotMatch(dailyEditor.shadowRoot.innerHTML, />Titre</);

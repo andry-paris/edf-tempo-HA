@@ -11,6 +11,10 @@ const EDF_TEMPO_CARD_TRANSLATIONS = {
     blue_days: "Blue days",
     calendar_title: "EDF Tempo Calendar",
     columns: "Columns",
+    display_days: "Days to display",
+    display_days_both: "Today and tomorrow",
+    display_days_today: "Today only",
+    display_days_tomorrow: "Tomorrow only",
     update_info: "Tomorrow: update information",
     update_info_hidden: "Hidden",
     update_info_top: "Below the title",
@@ -38,6 +42,10 @@ const EDF_TEMPO_CARD_TRANSLATIONS = {
     blue_days: "Jours bleus",
     calendar_title: "Calendrier EDF Tempo",
     columns: "Colonnes",
+    display_days: "Jours à afficher",
+    display_days_both: "Aujourd’hui et demain",
+    display_days_today: "Aujourd’hui uniquement",
+    display_days_tomorrow: "Demain uniquement",
     update_info: "Demain : informations de mise à jour",
     update_info_hidden: "Masquées",
     update_info_top: "Sous le titre",
@@ -81,6 +89,10 @@ function edfTempoCardText(hass, key) {
 function edfTempoDailyColumns(value) {
   const parsed = Number.parseInt(String(value ?? 2), 10);
   return Number.isNaN(parsed) ? 2 : Math.min(2, Math.max(1, parsed));
+}
+
+function edfTempoDisplayDays(value) {
+  return ["today", "tomorrow"].includes(value) ? value : "both";
 }
 
 function edfTempoUpdateInfo(value) {
@@ -133,6 +145,7 @@ class EdfTempoCardEditor extends HTMLElement {
       today_entity: this._resolveTodayEntity(config.today_entity),
       tomorrow_entity: this._resolveTomorrowEntity(config.tomorrow_entity),
       columns: edfTempoDailyColumns(config.columns),
+      display_days: edfTempoDisplayDays(config.display_days),
       update_info: edfTempoUpdateInfo(config.update_info),
     };
 
@@ -202,6 +215,12 @@ class EdfTempoCardEditor extends HTMLElement {
           <ha-entity-picker id="tomorrow_entity"></ha-entity-picker>
         </div>
         <div class="field">
+          <label for="display_days">${edfTempoCardText(this._hass, "display_days")}</label>
+          <select id="display_days">
+            ${["both", "today", "tomorrow"].map(days => `<option value="${days}" ${this._config.display_days === days ? "selected" : ""}>${edfTempoCardText(this._hass, `display_days_${days}`)}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field">
           <label for="columns">${edfTempoCardText(this._hass, "columns")}</label>
           <input id="columns" type="number" min="1" max="2" step="1" value="${this._config.columns}" />
         </div>
@@ -222,20 +241,31 @@ class EdfTempoCardEditor extends HTMLElement {
       picker.allowCustomEntity = true;
     }
 
+    this._syncDisplayControls();
+
     if (!this._initialized) {
       this._initialized = true;
       this.shadowRoot.addEventListener("input", this._handleInput.bind(this));
       this.shadowRoot.addEventListener("change", (event) => {
-        if (event.target?.id === "update_info") this._handleInput(event);
+        if (["update_info", "display_days"].includes(event.target?.id)) this._handleInput(event);
       });
       this.shadowRoot.addEventListener("value-changed", this._handleInput.bind(this));
     }
   }
 
+  _syncDisplayControls() {
+    const columns = this.shadowRoot.querySelector("#columns");
+    columns.disabled = this._config.display_days !== "both";
+    columns.value = columns.disabled ? 1 : this._config.columns;
+    const info = this.shadowRoot.querySelector("#update_info");
+    info.disabled = this._config.display_days === "today";
+    info.value = info.disabled ? "hidden" : this._config.update_info;
+  }
+
   _handleInput(event) {
     const target = event.target;
-    if (target?.id === "update_info" && event.type === "input") return;
-    if (!target?.id || !["title", "today_entity", "tomorrow_entity", "columns", "update_info"].includes(target.id)) {
+    if (["update_info", "display_days"].includes(target?.id) && event.type === "input") return;
+    if (!target?.id || !["title", "today_entity", "tomorrow_entity", "columns", "update_info", "display_days"].includes(target.id)) {
       return;
     }
 
@@ -245,10 +275,12 @@ class EdfTempoCardEditor extends HTMLElement {
       ...this._config,
       type: "custom:edf-tempo-card",
       [target.id]: target.id === "columns" ? edfTempoDailyColumns(value)
-        : target.id === "update_info" ? edfTempoUpdateInfo(value) : String(value).trim(),
+        : target.id === "update_info" ? edfTempoUpdateInfo(value)
+        : target.id === "display_days" ? edfTempoDisplayDays(value) : String(value).trim(),
     };
 
     this._config = nextConfig;
+    this._syncDisplayControls();
     this.dispatchEvent(
       new CustomEvent("config-changed", {
         detail: { config: nextConfig },
@@ -295,7 +327,8 @@ class EdfTempoCardEditor extends HTMLElement {
       currentConfig?.today_entity === nextConfig.today_entity &&
       currentConfig?.tomorrow_entity === nextConfig.tomorrow_entity &&
       currentConfig?.columns === nextConfig.columns &&
-      currentConfig?.update_info === nextConfig.update_info
+      currentConfig?.update_info === nextConfig.update_info &&
+      currentConfig?.display_days === nextConfig.display_days
     );
   }
 
@@ -320,6 +353,7 @@ class EdfTempoCard extends HTMLElement {
       today_entity: "sensor.edf_tempo_today",
       tomorrow_entity: "sensor.edf_tempo_tomorrow",
       columns: 2,
+      display_days: "both",
     };
   }
 
@@ -345,6 +379,7 @@ class EdfTempoCard extends HTMLElement {
       today_entity: todayEntity,
       tomorrow_entity: tomorrowEntity,
       columns: edfTempoDailyColumns(config.columns),
+      display_days: edfTempoDisplayDays(config.display_days),
       update_info: edfTempoUpdateInfo(config.update_info),
     };
 
@@ -361,7 +396,7 @@ class EdfTempoCard extends HTMLElement {
   }
 
   getCardSize() {
-    return this._config?.columns === 1 ? 4 : 2;
+    return this._config?.display_days === "both" && this._config?.columns === 1 ? 4 : 2;
   }
 
   _computeSignature() {
@@ -418,6 +453,9 @@ class EdfTempoCard extends HTMLElement {
 
     const todayState = this._hass?.states?.[this._config.today_entity];
     const tomorrowState = this._hass?.states?.[this._config.tomorrow_entity];
+    const showToday = this._config.display_days !== "tomorrow";
+    const showTomorrow = this._config.display_days !== "today";
+    const columns = showToday && showTomorrow ? this._config.columns : 1;
 
     this.shadowRoot.innerHTML = `
       <style>
@@ -475,7 +513,7 @@ class EdfTempoCard extends HTMLElement {
         .grid {
           display: grid;
           gap: 14px;
-          grid-template-columns: repeat(${this._config.columns}, minmax(0, 1fr));
+          grid-template-columns: repeat(${columns}, minmax(0, 1fr));
         }
 
         .panel {
@@ -612,12 +650,12 @@ class EdfTempoCard extends HTMLElement {
           <div class="header">
             <div class="title">${this._escapeHtml(this._config.title)}</div>
           </div>
-          ${this._config.update_info === "top" ? this._renderUpdateInfo(tomorrowState) : ""}
-          <div class="grid ${this._config.columns === 2 ? "two-columns" : ""}">
-            ${this._renderPanel(this._t("today"), todayState)}
-            ${this._renderPanel(this._t("tomorrow"), tomorrowState)}
+          ${showTomorrow && this._config.update_info === "top" ? this._renderUpdateInfo(tomorrowState) : ""}
+          <div class="grid ${columns === 2 ? "two-columns" : ""}">
+            ${showToday ? this._renderPanel(this._t("today"), todayState) : ""}
+            ${showTomorrow ? this._renderPanel(this._t("tomorrow"), tomorrowState) : ""}
           </div>
-          ${this._config.update_info === "bottom" ? this._renderUpdateInfo(tomorrowState) : ""}
+          ${showTomorrow && this._config.update_info === "bottom" ? this._renderUpdateInfo(tomorrowState) : ""}
         </div>
       </ha-card>
     `;

@@ -57,5 +57,8 @@ secrets.yaml
 # Local private documentation (not published on GitHub)
 /README.private.md
 
+# Private local scripts: never add or force-add these to Git.
+/scripts/
+
 # Local backup files
 *.backup

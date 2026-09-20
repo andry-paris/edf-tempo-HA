@@ -24,9 +24,6 @@ versions identifiables. Elles ne sont donc pas reconstituées artificiellement d
   Les anciens horodatages ne sont pas affichés lorsque le capteur devient indisponible.
 - Choix d’une ou deux colonnes pour la carte Aujourd’hui / Demain, dans l’éditeur visuel et en
   YAML, avec deux colonnes par défaut. Affichage validé à 300 px de largeur de carte.
-- Scripts locaux pour préparer une version, synchroniser ses métadonnées, exécuter les tests et
-  ouvrir une pull request.
-- Test garantissant que les scripts de préparation ne peuvent pas publier directement une release.
 
 ## [1.2.10] — 2026-09-19
 

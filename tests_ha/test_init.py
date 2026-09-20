@@ -255,6 +255,9 @@ async def test_install_reload_reauth_uninstall(hass: HomeAssistant) -> None:
         assert all(hass.states.get(entity_id) is not None for entity_id in ENTITY_IDS)
         assert hass.states.get("sensor.edf_tempo_today").state == "blue"
         assert hass.states.get("sensor.edf_tempo_tomorrow").state == "white"
+        tomorrow_attributes = hass.states.get("sensor.edf_tempo_tomorrow").attributes
+        assert tomorrow_attributes["fetched_at"] == MOCK_DATA.fetched_at
+        assert tomorrow_attributes["updated_date"] == MOCK_DATA.tomorrow.updated_date
 
         entity_registry = er.async_get(hass)
         entity_registry.async_update_entity(

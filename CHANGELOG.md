@@ -9,12 +9,19 @@ versions identifiables. Elles ne sont donc pas reconstituées artificiellement d
 
 ### Corrigé
 
+- Conservation du choix d’affichage des horodatages dès la première sélection, sans reconstruire
+  le formulaire à chaque mise à jour de Home Assistant.
+- Alignement des dates et des couleurs entre les deux colonnes lorsque le libellé Aujourd’hui
+  occupe plusieurs lignes : les deux libellés partagent la même hauteur.
 - Suppression du basculement automatique des blocs Aujourd’hui et Demain en une colonne sous
   640 px, avec retour à la ligne du texte lorsque la largeur disponible est insuffisante
   ([#12](https://github.com/andry-paris/edf-tempo-HA/issues/12)).
 
 ### Ajouté
 
+- Affichage facultatif de la mise à jour RTE pour demain et de la dernière récupération réussie,
+  sous le titre ou sous les jours. Ajout de `fetched_at` aux attributs du capteur Demain.
+  Les anciens horodatages ne sont pas affichés lorsque le capteur devient indisponible.
 - Choix d’une ou deux colonnes pour la carte Aujourd’hui / Demain, dans l’éditeur visuel et en
   YAML, avec deux colonnes par défaut. Affichage validé à 300 px de largeur de carte.
 - Scripts locaux pour préparer une version, synchroniser ses métadonnées, exécuter les tests et

@@ -11,6 +11,13 @@ const EDF_TEMPO_CARD_TRANSLATIONS = {
     blue_days: "Blue days",
     calendar_title: "EDF Tempo Calendar",
     columns: "Columns",
+    update_info: "Tomorrow: update information",
+    update_info_hidden: "Hidden",
+    update_info_top: "Below the title",
+    update_info_bottom: "Below the days",
+    rte_updated: "Tomorrow · RTE update",
+    last_fetch: "Last successful retrieval",
+    timestamp_unknown: "Not available",
     daily_today_entity: "Today's entity",
     daily_tomorrow_entity: "Tomorrow's entity",
     load_month_failed: "Failed to load month data",
@@ -31,6 +38,13 @@ const EDF_TEMPO_CARD_TRANSLATIONS = {
     blue_days: "Jours bleus",
     calendar_title: "Calendrier EDF Tempo",
     columns: "Colonnes",
+    update_info: "Demain : informations de mise à jour",
+    update_info_hidden: "Masquées",
+    update_info_top: "Sous le titre",
+    update_info_bottom: "Sous les jours",
+    rte_updated: "Demain · Mise à jour RTE",
+    last_fetch: "Dernière récupération réussie",
+    timestamp_unknown: "Non disponible",
     daily_today_entity: "Entité d'aujourd'hui",
     daily_tomorrow_entity: "Entité de demain",
     load_month_failed: "Impossible de charger les données du mois",
@@ -69,8 +83,13 @@ function edfTempoDailyColumns(value) {
   return Number.isNaN(parsed) ? 2 : Math.min(2, Math.max(1, parsed));
 }
 
+function edfTempoUpdateInfo(value) {
+  return ["top", "bottom"].includes(value) ? value : "hidden";
+}
+
 class EdfTempoCardEditor extends HTMLElement {
   set hass(hass) {
+    const languageChanged = edfTempoCardIsFrench(this._hass) !== edfTempoCardIsFrench(hass);
     this._hass = hass;
     if (!this._config) {
       return;
@@ -78,17 +97,25 @@ class EdfTempoCardEditor extends HTMLElement {
 
     const resolvedToday = this._resolveTodayEntity(this._config.today_entity);
     const resolvedTomorrow = this._resolveTomorrowEntity(this._config.tomorrow_entity);
-    if (
+    const entitiesChanged = (
       resolvedToday !== this._config.today_entity ||
       resolvedTomorrow !== this._config.tomorrow_entity
-    ) {
+    );
+    if (entitiesChanged) {
       this._config = {
         ...this._config,
         today_entity: resolvedToday,
         tomorrow_entity: resolvedTomorrow,
       };
     }
-    this._render();
+    // Keep active form controls intact during Home Assistant state updates.
+    if (entitiesChanged || languageChanged || !this._initialized) {
+      this._render();
+    } else {
+      for (const fieldId of ["today_entity", "tomorrow_entity"]) {
+        this.shadowRoot.querySelector(`#${fieldId}`).hass = hass;
+      }
+    }
   }
 
   constructor() {
@@ -106,6 +133,7 @@ class EdfTempoCardEditor extends HTMLElement {
       today_entity: this._resolveTodayEntity(config.today_entity),
       tomorrow_entity: this._resolveTomorrowEntity(config.tomorrow_entity),
       columns: edfTempoDailyColumns(config.columns),
+      update_info: edfTempoUpdateInfo(config.update_info),
     };
 
     if (this._isSameConfig(this._config, nextConfig)) {
@@ -145,6 +173,7 @@ class EdfTempoCardEditor extends HTMLElement {
         }
 
         input,
+        select,
         ha-entity-picker {
           background: var(--card-background-color, #fff);
           border: 1px solid var(--divider-color, #d8dde6);
@@ -176,6 +205,12 @@ class EdfTempoCardEditor extends HTMLElement {
           <label for="columns">${edfTempoCardText(this._hass, "columns")}</label>
           <input id="columns" type="number" min="1" max="2" step="1" value="${this._config.columns}" />
         </div>
+        <div class="field">
+          <label for="update_info">${edfTempoCardText(this._hass, "update_info")}</label>
+          <select id="update_info">
+            ${["hidden", "top", "bottom"].map(position => `<option value="${position}" ${this._config.update_info === position ? "selected" : ""}>${edfTempoCardText(this._hass, `update_info_${position}`)}</option>`).join("")}
+          </select>
+        </div>
       </div>
     `;
 
@@ -190,13 +225,17 @@ class EdfTempoCardEditor extends HTMLElement {
     if (!this._initialized) {
       this._initialized = true;
       this.shadowRoot.addEventListener("input", this._handleInput.bind(this));
+      this.shadowRoot.addEventListener("change", (event) => {
+        if (event.target?.id === "update_info") this._handleInput(event);
+      });
       this.shadowRoot.addEventListener("value-changed", this._handleInput.bind(this));
     }
   }
 
   _handleInput(event) {
     const target = event.target;
-    if (!target?.id || !["title", "today_entity", "tomorrow_entity", "columns"].includes(target.id)) {
+    if (target?.id === "update_info" && event.type === "input") return;
+    if (!target?.id || !["title", "today_entity", "tomorrow_entity", "columns", "update_info"].includes(target.id)) {
       return;
     }
 
@@ -205,7 +244,8 @@ class EdfTempoCardEditor extends HTMLElement {
     const nextConfig = {
       ...this._config,
       type: "custom:edf-tempo-card",
-      [target.id]: target.id === "columns" ? edfTempoDailyColumns(value) : String(value).trim(),
+      [target.id]: target.id === "columns" ? edfTempoDailyColumns(value)
+        : target.id === "update_info" ? edfTempoUpdateInfo(value) : String(value).trim(),
     };
 
     this._config = nextConfig;
@@ -254,7 +294,8 @@ class EdfTempoCardEditor extends HTMLElement {
       currentConfig?.title === nextConfig.title &&
       currentConfig?.today_entity === nextConfig.today_entity &&
       currentConfig?.tomorrow_entity === nextConfig.tomorrow_entity &&
-      currentConfig?.columns === nextConfig.columns
+      currentConfig?.columns === nextConfig.columns &&
+      currentConfig?.update_info === nextConfig.update_info
     );
   }
 
@@ -304,6 +345,7 @@ class EdfTempoCard extends HTMLElement {
       today_entity: todayEntity,
       tomorrow_entity: tomorrowEntity,
       columns: edfTempoDailyColumns(config.columns),
+      update_info: edfTempoUpdateInfo(config.update_info),
     };
 
     this._render();
@@ -330,6 +372,8 @@ class EdfTempoCard extends HTMLElement {
     const todayState = this._hass.states[this._config.today_entity];
     const tomorrowState = this._hass.states[this._config.tomorrow_entity];
     return JSON.stringify({
+      language: this._isFrench(),
+      timeZone: this._hass.config?.time_zone,
       today: todayState ? { state: todayState.state, attributes: todayState.attributes } : null,
       tomorrow: tomorrowState
         ? { state: tomorrowState.state, attributes: tomorrowState.attributes }
@@ -402,6 +446,17 @@ class EdfTempoCard extends HTMLElement {
           padding: 20px;
         }
 
+        .update-info {
+          color: var(--secondary-text-color, #667085);
+          font-size: 0.7rem;
+          line-height: 1.4;
+          overflow-wrap: anywhere;
+          text-align: center;
+        }
+
+        .update-info.top { margin-bottom: 12px; }
+        .update-info.bottom { margin-top: 12px; }
+
         .header {
           align-items: center;
           display: flex;
@@ -425,6 +480,7 @@ class EdfTempoCard extends HTMLElement {
 
         .panel {
           align-items: center;
+          border: 1px solid transparent;
           border-radius: 20px;
           box-sizing: border-box;
           display: flex;
@@ -435,6 +491,24 @@ class EdfTempoCard extends HTMLElement {
           padding: 18px 18px 20px;
           position: relative;
           text-align: center;
+        }
+
+        .grid.two-columns {
+          row-gap: 0;
+        }
+
+        .grid.two-columns .panel {
+          align-items: start;
+          display: grid;
+          grid-row: span 3;
+          grid-template-rows: subgrid;
+          justify-items: center;
+          row-gap: 0;
+        }
+
+        .grid.two-columns .label {
+          align-items: center;
+          align-self: stretch;
         }
 
         .label {
@@ -538,13 +612,36 @@ class EdfTempoCard extends HTMLElement {
           <div class="header">
             <div class="title">${this._escapeHtml(this._config.title)}</div>
           </div>
-          <div class="grid">
+          ${this._config.update_info === "top" ? this._renderUpdateInfo(tomorrowState) : ""}
+          <div class="grid ${this._config.columns === 2 ? "two-columns" : ""}">
             ${this._renderPanel(this._t("today"), todayState)}
             ${this._renderPanel(this._t("tomorrow"), tomorrowState)}
           </div>
+          ${this._config.update_info === "bottom" ? this._renderUpdateInfo(tomorrowState) : ""}
         </div>
       </ha-card>
     `;
+  }
+
+  _formatTimestamp(value) {
+    const unknown = edfTempoCardText(this._hass, "timestamp_unknown");
+    if (typeof value !== "string" || !value.trim()) return unknown;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return unknown;
+    return new Intl.DateTimeFormat(this._isFrench() ? "fr-FR" : "en-GB", {
+      timeZone: this._hass?.config?.time_zone || "Europe/Paris",
+      day: "2-digit", month: "2-digit", year: "numeric",
+      hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    }).format(date);
+  }
+
+  _renderUpdateInfo(entity) {
+    // Unavailable sensors can retain attributes from an expired daily snapshot.
+    const attributes = entity?.state === "unavailable" ? {} : entity?.attributes || {};
+    return `<div class="update-info ${this._config.update_info}">
+      <div>${edfTempoCardText(this._hass, "rte_updated")} : ${this._escapeHtml(this._formatTimestamp(attributes.updated_date))}</div>
+      <div>${edfTempoCardText(this._hass, "last_fetch")} : ${this._escapeHtml(this._formatTimestamp(attributes.fetched_at))}</div>
+    </div>`;
   }
 
   _renderPanel(label, entity) {

@@ -17,8 +17,10 @@ function loadCardClasses(language = "fr-FR") {
 
     attachShadow() {
       const elements = new Map();
+      const listeners = new Map();
       this.shadowRoot = {
-        addEventListener() {},
+        addEventListener(type, listener) { listeners.set(type, listener); },
+        dispatchEvent(event) { listeners.get(event.type)?.(event); },
         innerHTML: "",
         querySelector(selector) {
           const id = selector.startsWith("#") ? selector.slice(1) : selector;
@@ -152,6 +154,81 @@ test("daily card and editor keep YAML column values within one or two", () => {
   }
 });
 
+test("tomorrow timestamps are optional, positioned by the editor and use the HA timezone", () => {
+  const { DailyCard, DailyEditor } = loadCardClasses();
+  const card = new DailyCard();
+  const editor = new DailyEditor();
+  editor.setConfig({});
+  card.setConfig(editor._config);
+  const tomorrow = { state: "red", attributes: {
+    date: "2026-09-21", updated_date: "2026-09-20T08:32:00Z",
+    fetched_at: "2026-09-20T08:40:00Z",
+  } };
+  const hass = { locale: { language: "fr" }, config: { time_zone: "Europe/Paris" },
+    states: { "sensor.edf_tempo_tomorrow": tomorrow } };
+  card.hass = hass;
+  assert.doesNotMatch(card.shadowRoot.innerHTML, /<div class="update-info/);
+  editor.dispatchEvent = event => card.setConfig(event.detail.config);
+  for (const position of ["top", "bottom"]) {
+    editor._handleInput({ target: { id: "update_info", value: position } });
+    editor._handleInput({ target: { id: "title", value: "Tempo" } });
+    const html = card.shadowRoot.innerHTML;
+    assert.match(html, /Demain · Mise à jour RTE : 20\/09\/2026.*10:32/);
+    assert.match(html, /Dernière récupération réussie : 20\/09\/2026.*10:40/);
+    const infoIndex = html.indexOf('<div class="update-info');
+    assert.ok(infoIndex > html.indexOf('<div class="title">'));
+    if (position === "top") assert.ok(infoIndex < html.indexOf('<div class="grid '));
+    if (position === "bottom") assert.ok(infoIndex > html.lastIndexOf('</section>'));
+  }
+  card.hass = { ...hass, locale: { language: "en" }, config: { time_zone: "UTC" } };
+  assert.match(card.shadowRoot.innerHTML, /Tomorrow · RTE update : 20\/09\/2026.*08:32/);
+  tomorrow.state = "unavailable";
+  card.hass = hass;
+  assert.match(card.shadowRoot.innerHTML, /Mise à jour RTE : Non disponible/);
+  assert.match(card.shadowRoot.innerHTML, /récupération réussie : Non disponible/);
+  assert.doesNotMatch(card.shadowRoot.innerHTML, /20\/09\/2026/);
+  tomorrow.state = "unknown";
+  tomorrow.attributes.updated_date = null;
+  card.hass = hass;
+  assert.match(card.shadowRoot.innerHTML, /récupération réussie : 20\/09\/2026.*10:40/);
+  tomorrow.attributes.updated_date = null;
+  tomorrow.attributes.fetched_at = "invalid";
+  card.hass = hass;
+  assert.match(card.shadowRoot.innerHTML, /Mise à jour RTE : Non disponible/);
+  assert.match(card.shadowRoot.innerHTML, /récupération réussie : Non disponible/);
+  editor._handleInput({ target: { id: "update_info", value: "hidden" } });
+  assert.doesNotMatch(card.shadowRoot.innerHTML, /<div class="update-info/);
+});
+
+test("daily editor keeps the open selector intact and saves its first selection", () => {
+  const { DailyEditor } = loadCardClasses();
+  const editor = new DailyEditor();
+  editor.setConfig({});
+  editor.hass = { locale: { language: "fr" }, states: {} };
+  assert.match(editor.shadowRoot.innerHTML, />Sous le titre</);
+  let renders = 0;
+  const render = editor._render.bind(editor);
+  editor._render = () => { renders++; render(); };
+  const events = [];
+  editor.dispatchEvent = event => {
+    events.push(event);
+    editor.setConfig(event.detail.config);
+    editor.hass = { locale: { language: "fr" }, states: {} };
+  };
+
+  // HA sends new state objects while the native select is open.
+  editor.hass = { locale: { language: "fr" }, states: { unrelated: {} } };
+  assert.equal(renders, 0);
+  const target = { id: "update_info", value: "bottom" };
+  editor.shadowRoot.dispatchEvent({ type: "input", target });
+  editor.shadowRoot.dispatchEvent({ type: "change", target });
+  assert.equal(events.length, 1);
+  assert.equal(events[0].detail.config.update_info, "bottom");
+  assert.equal(editor._config.update_info, "bottom");
+  assert.equal(renders, 0);
+  assert.equal(editor.shadowRoot.querySelector("#tomorrow_entity").hass, editor._hass);
+});
+
 test("entity-based card editors use Home Assistant sensor pickers", () => {
   const { DailyEditor, SeasonEditor } = loadCardClasses();
   const hass = {
@@ -255,6 +332,9 @@ test("card editors and season content are fully localized in English", () => {
   assert.match(dailyEditor.shadowRoot.innerHTML, />Title</);
   assert.match(dailyEditor.shadowRoot.innerHTML, />Today's entity</);
   assert.match(dailyEditor.shadowRoot.innerHTML, />Tomorrow's entity</);
+  for (const label of ["Columns", "Tomorrow: update information", "Hidden", "Below the title", "Below the days"]) {
+    assert.ok(dailyEditor.shadowRoot.innerHTML.includes(`>${label}<`));
+  }
   assert.doesNotMatch(dailyEditor.shadowRoot.innerHTML, />Titre</);
 
   const seasonEditor = new SeasonEditor();

@@ -87,6 +87,16 @@ class EdfTempoSensorTests(unittest.TestCase):
         self.assertEqual(self._sensor("today", coordinator).native_value, "blue")
         self.assertEqual(self._sensor("tomorrow", coordinator).native_value, "red")
 
+    def test_tomorrow_exposes_last_successful_fetch_even_during_failure(self) -> None:
+        """The timestamp describes the retained snapshot, not failed attempts."""
+        coordinator = _Coordinator("BLUE", None)
+        sensor = self._sensor("tomorrow", coordinator)
+        self.assertEqual(sensor.extra_state_attributes["fetched_at"], coordinator.data.fetched_at)
+        self.assertIsNone(sensor.extra_state_attributes["updated_date"])
+        coordinator.last_update_success = False
+        self.assertEqual(sensor.extra_state_attributes["fetched_at"], coordinator.data.fetched_at)
+        self.assertNotIn("fetched_at", self._sensor("today", coordinator).extra_state_attributes)
+
     def test_current_snapshot_is_available_after_success(self) -> None:
         """A successful snapshot for the current Paris date is available."""
         coordinator = _Coordinator("BLUE", "RED")

@@ -194,6 +194,11 @@ class EdfTempoSensor(CoordinatorEntity[EdfTempoDataUpdateCoordinator], SensorEnt
             ATTR_COLOR_CODE: self._day_data.color_code,
             ATTR_FALLBACK: self._day_data.fallback,
             ATTR_UPDATED_DATE: self._day_data.updated_date,
+            **(
+                {"fetched_at": self.coordinator.data.fetched_at}
+                if self.entity_description.value_key == "tomorrow"
+                else {}
+            ),
         }
 
     @property

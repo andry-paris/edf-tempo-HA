@@ -71,6 +71,18 @@ choisir **1** (jours empilés) ou **2** (jours côte à côte), également confi
 L’affichage sur deux colonnes a été validé avec une largeur de carte de **300 px** ; en dessous,
 le rendu n’est pas garanti.
 
+Le réglage **Demain : informations de mise à jour** permet d’afficher deux lignes discrètes
+sous le titre ou sous les deux jours : la mise à jour côté RTE pour demain et la dernière
+récupération réussie par l’intégration. Ces informations sont masquées par défaut. En YAML,
+utilisez `update_info: top` (sous le titre), `update_info: bottom` (sous les jours) ou
+`update_info: hidden` (masquées). Les dates sont affichées dans le fuseau horaire de Home Assistant,
+sans appel supplémentaire à RTE. Une date absente ou invalide est indiquée comme **Non disponible** ;
+si le capteur Demain devient indisponible, les deux anciens horodatages sont masqués et remplacés
+par cette mention.
+
+En mode deux colonnes, les libellés Aujourd’hui et Demain partagent la même hauteur pour maintenir
+les dates et les couleurs alignées lorsque l’un des libellés passe sur plusieurs lignes.
+
 | Thème Home Assistant | Thème Frosted |
 |---|---|
 | ![Carte EDF Tempo pour aujourd’hui et demain avec le thème Home Assistant](docs/screenshots/Carte-EDF%20Tempo-26-27-Juillet-2026-HA-Theme.png) | ![Carte EDF Tempo pour aujourd’hui et demain avec le thème Frosted](docs/screenshots/Carte-EDF%20Tempo-26-27-Juillet-2026-Frosted-Theme.png) |

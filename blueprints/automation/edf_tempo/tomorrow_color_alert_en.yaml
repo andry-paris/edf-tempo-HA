@@ -1,0 +1,76 @@
+blueprint:
+  name: "EDF Tempo — Tomorrow color alert"
+  description: >-
+    Run an action when tomorrow's color matches one of the selected colors.
+    Runs automatically at most once per day, including after an outage or restart
+    when Home Assistant has restored the automation history.
+    Set Home Assistant's time zone to Europe/Paris.
+    The action can use tempo_color, tempo_color_label and tempo_date variables.
+  domain: automation
+  homeassistant:
+    min_version: "2025.1.0"
+  input:
+    tomorrow_entity:
+      name: Tomorrow's color sensor
+      description: Select the Tomorrow sensor from the EDF Tempo integration.
+      default: sensor.edf_tempo_tomorrow
+      selector:
+        entity:
+          filter:
+            domain: sensor
+            integration: edf_tempo
+    alert_colors:
+      name: Colors triggering the alert
+      default:
+        - red
+      selector:
+        select:
+          multiple: true
+          options:
+            - label: Red
+              value: red
+            - label: White
+              value: white
+            - label: Blue
+              value: blue
+    alert_actions:
+      name: Action to run
+      description: >-
+        By default, creates a Home Assistant notification. Replace it with a mobile
+        notification, a voice announcement or any other action.
+      default:
+        - action: persistent_notification.create
+          data:
+            title: EDF Tempo
+            message: "Tomorrow ({{ tempo_date }}) is a {{ tempo_color_label }} Tempo day."
+            notification_id: "{{ this.entity_id }}_{{ tempo_date }}"
+      selector:
+        action: {}
+
+mode: single
+max_exceeded: silent
+
+variables:
+  tomorrow_entity: !input tomorrow_entity
+  alert_colors: !input alert_colors
+  tempo_color: "{{ states(tomorrow_entity) }}"
+  tempo_date: "{{ state_attr(tomorrow_entity, 'date') }}"
+  tempo_color_label: "{{ {'blue': 'blue', 'white': 'white', 'red': 'red'}.get(tempo_color, tempo_color) }}"
+
+triggers:
+  - trigger: state
+    entity_id: !input tomorrow_entity
+  - trigger: homeassistant
+    event: start
+
+conditions:
+  - condition: template
+    value_template: "{{ tempo_color in ['blue', 'white', 'red'] and tempo_color in alert_colors }}"
+  - condition: template
+    value_template: "{{ tempo_date == (now().date() + timedelta(days=1)).isoformat() }}"
+  - condition: template
+    value_template: >-
+      {% set previous = this.attributes.get('last_triggered') %}
+      {{ previous is none or as_local(as_datetime(previous)).date() != now().date() }}
+
+actions: !input alert_actions

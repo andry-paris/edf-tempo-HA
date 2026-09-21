@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
@@ -12,6 +13,8 @@ install()
 
 from custom_components.edf_tempo.api import (
     EdfTempoApiError,
+    EdfTempoAuthError,
+    EdfTempoClient,
     TempoCalendarData,
     TempoDayData,
     TempoDayWindowData,
@@ -23,6 +26,8 @@ from custom_components.edf_tempo.coordinator import (
     EdfTempoDataUpdateCoordinator,
 )
 from homeassistant.helpers.update_coordinator import UpdateFailed
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
 
 
 def _day(date_value: str, color_code: str | None) -> TempoDayData:
@@ -233,6 +238,102 @@ class EdfTempoCoordinatorRetryTests(unittest.IsolatedAsyncioTestCase):
 
         coordinator.async_update_listeners.assert_not_called()
         self.assertFalse(coordinator._expired_snapshot_notified)
+
+
+class EdfTempoConcurrentSeasonTests(unittest.IsolatedAsyncioTestCase):
+    """Exercise overlapping requests without contacting RTE."""
+
+    async def asyncSetUp(self) -> None:
+        self.entries = {}
+        self.cache = Mock()
+        self.cache.get.side_effect = self.entries.get
+
+        async def save(entry):
+            self.entries[entry.summary.season_start] = entry
+
+        self.cache.async_set = AsyncMock(side_effect=save)
+        self.client = Mock()
+        self.client._get_current_season_bounds = EdfTempoClient._get_current_season_bounds
+        self.started = asyncio.Event()
+        self.release = asyncio.Event()
+
+        async def fetch(start, end):
+            self.started.set()
+            await self.release.wait()
+            return {start.isoformat(): "BLUE"}
+
+        self.client.async_get_season_day_colors = AsyncMock(side_effect=fetch)
+        self.coordinator = EdfTempoDataUpdateCoordinator(
+            HomeAssistant(), ConfigEntry(), self.client, self.cache
+        )
+
+    async def test_same_season_shares_download_and_cache_write(self) -> None:
+        first = asyncio.create_task(self.coordinator.async_get_season_entry(2020))
+        await self.started.wait()
+        second = asyncio.create_task(self.coordinator.async_get_season_entry(2020))
+        await asyncio.sleep(0)
+        self.client.async_get_season_day_colors.assert_awaited_once()
+        self.release.set()
+        results = await asyncio.gather(first, second)
+        self.assertIs(results[0], results[1])
+        self.cache.async_set.assert_awaited_once()
+        self.assertIs(await self.coordinator.async_get_season_entry(2020), results[0])
+        self.client.async_get_season_day_colors.assert_awaited_once()
+        self.assertFalse(self.coordinator._season_loads)
+
+    async def test_different_seasons_download_in_parallel(self) -> None:
+        first = asyncio.create_task(self.coordinator.async_get_season_entry(2020))
+        await self.started.wait()
+        self.started.clear()
+        second = asyncio.create_task(self.coordinator.async_get_season_entry(2021))
+        await asyncio.wait_for(self.started.wait(), timeout=1)
+        self.assertEqual(self.client.async_get_season_day_colors.await_count, 2)
+        self.release.set()
+        results = await asyncio.gather(first, second)
+        self.assertNotEqual(results[0].summary.season_start, results[1].summary.season_start)
+
+    async def test_failures_are_shared_and_next_request_can_retry(self) -> None:
+        for error in (EdfTempoApiError("offline"), EdfTempoAuthError("rejected")):
+            with self.subTest(error=type(error).__name__):
+                self.started.clear()
+                self.release.clear()
+                self.entries.clear()
+
+                async def fail(start, end):
+                    self.started.set()
+                    await self.release.wait()
+                    raise error
+
+                self.client.async_get_season_day_colors.reset_mock()
+                self.client.async_get_season_day_colors.side_effect = fail
+                first = asyncio.create_task(self.coordinator.async_get_season_entry(2020))
+                await self.started.wait()
+                second = asyncio.create_task(self.coordinator.async_get_season_entry(2020))
+                await asyncio.sleep(0)
+                self.release.set()
+                results = await asyncio.gather(first, second, return_exceptions=True)
+                self.assertTrue(all(result is error for result in results))
+                self.client.async_get_season_day_colors.assert_awaited_once()
+                self.assertFalse(self.coordinator._season_loads)
+                self.client.async_get_season_day_colors.side_effect = None
+                self.client.async_get_season_day_colors.return_value = {"2020-09-01": "WHITE"}
+                entry = await self.coordinator.async_get_season_entry(2020)
+                self.assertEqual(entry.day_colors["2020-09-01"], "WHITE")
+                self.assertEqual(self.client.async_get_season_day_colors.await_count, 2)
+
+    async def test_cancelling_one_caller_keeps_shared_download_alive(self) -> None:
+        first = asyncio.create_task(self.coordinator.async_get_season_entry(2020))
+        await self.started.wait()
+        second = asyncio.create_task(self.coordinator.async_get_season_entry(2020))
+        await asyncio.sleep(0)
+        first.cancel()
+        with self.assertRaises(asyncio.CancelledError):
+            await first
+        self.release.set()
+        entry = await second
+        self.assertEqual(entry.day_colors["2020-09-01"], "BLUE")
+        self.client.async_get_season_day_colors.assert_awaited_once()
+        self.assertFalse(self.coordinator._season_loads)
 
 
 if __name__ == "__main__":

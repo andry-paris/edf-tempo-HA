@@ -177,7 +177,41 @@ Les cartes sont installées et enregistrées automatiquement avec l’intégrati
 
 Si vos ressources Lovelace sont gérées manuellement en mode YAML, ajoutez `/edf_tempo/card.js?v=1.2.10` comme module JavaScript dans votre configuration.
 
+Les éditeurs Aujourd’hui / Demain et Synthèse de saison proposent le sélecteur d’entités
+Home Assistant. Si son chargement échoue, des champs de saisie avec suggestions permettent de
+poursuivre la configuration. Vous pouvez effacer un champ pour choisir une autre entité sans
+que sa valeur par défaut soit rétablie pendant la saisie.
+
 ## Exemple de notification Tempo
+
+### Blueprint : alerte couleur de demain
+
+Le blueprint **EDF Tempo — Alerte couleur de demain** propose le choix du capteur Demain,
+des couleurs à surveiller (rouge par défaut) et de l’action à exécuter. Par défaut, il crée une
+notification dans Home Assistant ; vous pouvez la remplacer par une notification mobile ou une
+autre action dans l’éditeur.
+
+- [Blueprint français](blueprints/automation/edf_tempo/tomorrow_color_alert.yaml)
+- [English blueprint](blueprints/automation/edf_tempo/tomorrow_color_alert_en.yaml)
+
+Copiez le fichier choisi dans `/config/blueprints/automation/edf_tempo/`, puis ouvrez
+**Paramètres > Automatisations et scènes > Blueprints** et créez une automatisation à partir de ce
+modèle. Le chemin `/config` est celui du conteneur Home Assistant, pas celui de `custom_components`.
+Les blueprints sont optionnels et ne sont pas installés automatiquement avec l’intégration HACS.
+
+Le fuseau horaire de Home Assistant doit être **Europe/Paris**. L’alerte se déclenche lorsque les
+données disponibles concernent bien demain et une couleur sélectionnée. Elle est limitée à une
+exécution automatique par jour et par automatisation. Une panne suivie d’une récupération ne
+déclenche pas une seconde alerte ; après redémarrage, cette protection utilise la dernière exécution
+restaurée par Home Assistant. Si cet historique a été effacé, une nouvelle alerte reste possible.
+Une action en échec est comptée comme une exécution : le blueprint ne la réessaie pas automatiquement.
+
+Les actions personnalisées peuvent utiliser `{{ tempo_color }}` (`blue`, `white`, `red`),
+`{{ tempo_color_label }}` (couleur traduite) et `{{ tempo_date }}` (date du lendemain).
+Le bouton **Exécuter les actions** contourne les conditions de l’automatisation ; il ne teste donc
+pas la protection contre les doublons.
+
+### Automatisation à heure fixe
 
 Vous pouvez créer une notification directement depuis l’éditeur graphique des automatisations de Home Assistant, sans écrire de YAML. Choisissez un déclenchement à 18 h, ajoutez la condition « EDF Tempo demain est Rouge », puis sélectionnez votre téléphone comme cible de notification.
 

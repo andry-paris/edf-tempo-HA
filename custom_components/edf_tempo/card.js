@@ -99,6 +99,55 @@ function edfTempoUpdateInfo(value) {
   return ["top", "bottom"].includes(value) ? value : "hidden";
 }
 
+let edfTempoEntityPickerLoading;
+
+async function edfTempoLoadEntityPicker() {
+  if (customElements.get("ha-entity-picker")) return;
+  if (!edfTempoEntityPickerLoading) {
+    edfTempoEntityPickerLoading = (async () => {
+      const helpers = await window.loadCardHelpers();
+      const card = await helpers.createCardElement({ type: "entities", entities: [] });
+      await card.constructor.getConfigElement();
+      if (!customElements.get("ha-entity-picker")) {
+        throw new Error("Home Assistant entity picker is not registered");
+      }
+    })().finally(() => { edfTempoEntityPickerLoading = undefined; });
+  }
+  try {
+    await edfTempoEntityPickerLoading;
+  } catch (error) {
+    console.warn("EDF Tempo: entity picker loading failed; using text inputs.", error);
+  }
+}
+
+function edfTempoSyncEntityControls(editor, fields) {
+  if (editor._usesEntityPicker) {
+    for (const id of fields) {
+      const picker = editor.shadowRoot.querySelector(`#${id}`);
+      picker.hass = editor._hass;
+      picker.includeDomains = ["sensor"];
+      picker.allowCustomEntity = true;
+    }
+  } else {
+    edfTempoUpdateSensorOptions(editor.shadowRoot, editor._hass);
+  }
+}
+
+function edfTempoUpdateSensorOptions(root, hass) {
+  const escape = value => String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+  const options = Object.entries(hass?.states || {})
+    .filter(([id]) => id.startsWith("sensor."))
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([id, state]) => `<option value="${escape(id)}" label="${escape(state.attributes?.friendly_name || id)}"></option>`)
+    .join("");
+  const list = root.querySelector("#tempo-sensor-options");
+  if (list.innerHTML !== options) list.innerHTML = options;
+}
+
 class EdfTempoCardEditor extends HTMLElement {
   set hass(hass) {
     const languageChanged = edfTempoCardIsFrench(this._hass) !== edfTempoCardIsFrench(hass);
@@ -124,9 +173,7 @@ class EdfTempoCardEditor extends HTMLElement {
     if (entitiesChanged || languageChanged || !this._initialized) {
       this._render();
     } else {
-      for (const fieldId of ["today_entity", "tomorrow_entity"]) {
-        this.shadowRoot.querySelector(`#${fieldId}`).hass = hass;
-      }
+      edfTempoSyncEntityControls(this, ["today_entity", "tomorrow_entity"]);
     }
   }
 
@@ -162,6 +209,7 @@ class EdfTempoCardEditor extends HTMLElement {
       return;
     }
 
+    this._usesEntityPicker = Boolean(customElements.get("ha-entity-picker"));
     this.shadowRoot.innerHTML = `
       <style>
         :host {
@@ -185,9 +233,9 @@ class EdfTempoCardEditor extends HTMLElement {
           font-weight: 600;
         }
 
+        ha-entity-picker,
         input,
-        select,
-        ha-entity-picker {
+        select {
           background: var(--card-background-color, #fff);
           border: 1px solid var(--divider-color, #d8dde6);
           border-radius: 10px;
@@ -201,6 +249,7 @@ class EdfTempoCardEditor extends HTMLElement {
           font-size: 0.8rem;
         }
       </style>
+      <datalist id="tempo-sensor-options"></datalist>
       <div class="form">
         <div class="field">
           <label for="title">${edfTempoCardText(this._hass, "title")}</label>
@@ -208,11 +257,11 @@ class EdfTempoCardEditor extends HTMLElement {
         </div>
         <div class="field">
           <label for="today_entity">${edfTempoCardText(this._hass, "daily_today_entity")}</label>
-          <ha-entity-picker id="today_entity"></ha-entity-picker>
+          ${this._usesEntityPicker ? `<ha-entity-picker id="today_entity"></ha-entity-picker>` : `<input id="today_entity" type="text" list="tempo-sensor-options" autocomplete="off" spellcheck="false" />`}
         </div>
         <div class="field">
           <label for="tomorrow_entity">${edfTempoCardText(this._hass, "daily_tomorrow_entity")}</label>
-          <ha-entity-picker id="tomorrow_entity"></ha-entity-picker>
+          ${this._usesEntityPicker ? `<ha-entity-picker id="tomorrow_entity"></ha-entity-picker>` : `<input id="tomorrow_entity" type="text" list="tempo-sensor-options" autocomplete="off" spellcheck="false" />`}
         </div>
         <div class="field">
           <label for="display_days">${edfTempoCardText(this._hass, "display_days")}</label>
@@ -235,12 +284,10 @@ class EdfTempoCardEditor extends HTMLElement {
 
     for (const fieldId of ["today_entity", "tomorrow_entity"]) {
       const picker = this.shadowRoot.querySelector(`#${fieldId}`);
-      picker.hass = this._hass;
       picker.value = this._config[fieldId];
-      picker.includeDomains = ["sensor"];
-      picker.allowCustomEntity = true;
     }
 
+    edfTempoSyncEntityControls(this, ["today_entity", "tomorrow_entity"]);
     this._syncDisplayControls();
 
     if (!this._initialized) {
@@ -303,7 +350,8 @@ class EdfTempoCardEditor extends HTMLElement {
   }
 
   _resolveEntity(entityId, fallbacks) {
-    if (entityId) {
+    // Preserve an explicitly cleared field while editing.
+    if (typeof entityId === "string") {
       return entityId;
     }
 
@@ -342,7 +390,8 @@ class EdfTempoCardEditor extends HTMLElement {
 }
 
 class EdfTempoCard extends HTMLElement {
-  static getConfigElement() {
+  static async getConfigElement() {
+    await edfTempoLoadEntityPicker();
     return new EdfTempoCardEditor();
   }
 
@@ -853,16 +902,19 @@ class EdfTempoCard extends HTMLElement {
 
 class EdfTempoSeasonCardEditor extends HTMLElement {
   set hass(hass) {
+    const languageChanged = edfTempoCardIsFrench(this._hass) !== edfTempoCardIsFrench(hass);
     this._hass = hass;
-    if (!this._config) {
-      return;
-    }
-
+    if (!this._config) return;
     const resolvedEntity = this._resolveSeasonEntity(this._config.entity);
-    if (resolvedEntity !== this._config.entity) {
+    const entityChanged = resolvedEntity !== this._config.entity;
+    if (entityChanged) {
       this._config = { ...this._config, entity: resolvedEntity };
     }
-    this._render();
+    if (entityChanged || languageChanged || !this._initialized) {
+      this._render();
+    } else {
+      edfTempoSyncEntityControls(this, ["entity"]);
+    }
   }
 
   constructor() {
@@ -897,6 +949,7 @@ class EdfTempoSeasonCardEditor extends HTMLElement {
       return;
     }
 
+    this._usesEntityPicker = Boolean(customElements.get("ha-entity-picker"));
     this.shadowRoot.innerHTML = `
       <style>
         :host {
@@ -920,8 +973,8 @@ class EdfTempoSeasonCardEditor extends HTMLElement {
           font-weight: 600;
         }
 
-        input,
-        ha-entity-picker {
+        ha-entity-picker,
+        input {
           background: var(--card-background-color, #fff);
           border: 1px solid var(--divider-color, #d8dde6);
           border-radius: 10px;
@@ -930,6 +983,7 @@ class EdfTempoSeasonCardEditor extends HTMLElement {
           padding: 10px 12px;
         }
       </style>
+      <datalist id="tempo-sensor-options"></datalist>
       <div class="form">
         <div class="field">
           <label for="title">${edfTempoCardText(this._hass, "title")}</label>
@@ -937,16 +991,14 @@ class EdfTempoSeasonCardEditor extends HTMLElement {
         </div>
         <div class="field">
           <label for="entity">${edfTempoCardText(this._hass, "season_entity")}</label>
-          <ha-entity-picker id="entity"></ha-entity-picker>
+          ${this._usesEntityPicker ? `<ha-entity-picker id="entity"></ha-entity-picker>` : `<input id="entity" type="text" list="tempo-sensor-options" autocomplete="off" spellcheck="false" />`}
         </div>
       </div>
     `;
 
     const picker = this.shadowRoot.querySelector("#entity");
-    picker.hass = this._hass;
     picker.value = this._config.entity;
-    picker.includeDomains = ["sensor"];
-    picker.allowCustomEntity = true;
+    edfTempoSyncEntityControls(this, ["entity"]);
 
     if (!this._initialized) {
       this._initialized = true;
@@ -986,7 +1038,8 @@ class EdfTempoSeasonCardEditor extends HTMLElement {
   }
 
   _resolveEntity(entityId, fallbacks) {
-    if (entityId) {
+    // Preserve an explicitly cleared field while editing.
+    if (typeof entityId === "string") {
       return entityId;
     }
 
@@ -1013,7 +1066,8 @@ class EdfTempoSeasonCardEditor extends HTMLElement {
 }
 
 class EdfTempoSeasonCard extends HTMLElement {
-  static getConfigElement() {
+  static async getConfigElement() {
+    await edfTempoLoadEntityPicker();
     return new EdfTempoSeasonCardEditor();
   }
 

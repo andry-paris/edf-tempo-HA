@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, time, timedelta
+import asyncio
+from datetime import date, datetime, time, timedelta
 import logging
 
 from homeassistant.config_entries import ConfigEntry
@@ -53,6 +54,7 @@ class EdfTempoDataUpdateCoordinator(DataUpdateCoordinator[TempoCalendarData]):
         )
         self.client = client
         self._season_cache = season_cache
+        self._season_loads: dict[str, asyncio.Task[TempoSeasonCacheEntry]] = {}
         self._overnight_baseline_date: str | None = None
         self._overnight_baseline: TempoCalendarData | None = None
         self._midday_baseline_date: str | None = None
@@ -163,14 +165,15 @@ class EdfTempoDataUpdateCoordinator(DataUpdateCoordinator[TempoCalendarData]):
 
         cache_entry = self._season_cache.get(season_start_key)
         if cache_entry is None:
-            _LOGGER.debug("EDF Tempo season cache miss for %s", season_start_key)
-            season_day_colors = await self.client.async_get_season_day_colors(season_start, season_end)
-            cache_entry = build_cache_entry(
-                season_start_key,
-                season_end.isoformat(),
-                season_day_colors,
-            )
-            await self._season_cache.async_set(cache_entry)
+            task = self._season_loads.get(season_start_key)
+            if task is None:
+                task = asyncio.create_task(self._async_load_season(season_start, season_end))
+                self._season_loads[season_start_key] = task
+                task.add_done_callback(
+                    lambda completed: self._season_load_finished(season_start_key, completed)
+                )
+            # A closing card must not cancel a download shared with other callers.
+            cache_entry = await asyncio.shield(task)
         else:
             _LOGGER.debug("EDF Tempo season cache hit for %s", season_start_key)
 
@@ -187,6 +190,24 @@ class EdfTempoDataUpdateCoordinator(DataUpdateCoordinator[TempoCalendarData]):
             )
 
         return cache_entry
+
+    async def _async_load_season(self, season_start: date, season_end: date) -> TempoSeasonCacheEntry:
+        """Download and persist one missing season for all concurrent callers."""
+        _LOGGER.debug("EDF Tempo season cache miss for %s", season_start)
+        day_colors = await self.client.async_get_season_day_colors(season_start, season_end)
+        entry = build_cache_entry(season_start.isoformat(), season_end.isoformat(), day_colors)
+        await self._season_cache.async_set(entry)
+        return entry
+
+    @callback
+    def _season_load_finished(
+        self, season_start_key: str, task: asyncio.Task[TempoSeasonCacheEntry]
+    ) -> None:
+        """Release the shared task and retrieve errors even if all callers left."""
+        if self._season_loads.get(season_start_key) is task:
+            del self._season_loads[season_start_key]
+        if not task.cancelled():
+            task.exception()
 
     @property
     def current_season_start_year(self) -> int:

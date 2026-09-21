@@ -6,7 +6,7 @@ const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
 
-function loadCardClasses(language = "fr-FR") {
+function loadCardClasses(language = "fr-FR", { loadCardHelpers } = {}) {
   const registeredElements = new Map();
 
   class FakeHTMLElement {
@@ -70,7 +70,7 @@ function loadCardClasses(language = "fr-FR") {
         return registeredElements.get(name);
       },
     },
-    window: {},
+    window: { loadCardHelpers },
   });
   const cardPath = path.join(
     __dirname,
@@ -82,6 +82,7 @@ function loadCardClasses(language = "fr-FR") {
   vm.runInContext(fs.readFileSync(cardPath, "utf8"), context, { filename: cardPath });
 
   return {
+    registeredElements,
     DailyCard: registeredElements.get("edf-tempo-card"),
     DailyEditor: registeredElements.get("edf-tempo-card-editor"),
     MonthCard: registeredElements.get("edf-tempo-month-card"),
@@ -226,7 +227,7 @@ test("daily editor keeps the open selector intact and saves its first selection"
   assert.equal(events[0].detail.config.update_info, "bottom");
   assert.equal(editor._config.update_info, "bottom");
   assert.equal(renders, 0);
-  assert.equal(editor.shadowRoot.querySelector("#tomorrow_entity").hass, editor._hass);
+  assert.equal(editor.shadowRoot.querySelector("#tomorrow_entity").value, "sensor.edf_tempo_tomorrow");
 });
 
 test("day selection enforces a non-empty layout and preserves editor preferences", () => {
@@ -265,43 +266,159 @@ test("day selection enforces a non-empty layout and preserves editor preferences
   assert.equal(card.getCardSize(), 4);
 });
 
-test("entity-based card editors use Home Assistant sensor pickers", () => {
+test("entity editors provide prefilled native inputs and escaped sensor suggestions", () => {
   const { DailyEditor, SeasonEditor } = loadCardClasses();
-  const hass = {
-    states: {
-      "sensor.edf_tempo_season_summary": {},
-      "sensor.edf_tempo_today": {},
-      "sensor.edf_tempo_tomorrow": {},
-    },
-  };
-
-  const dailyEditor = new DailyEditor();
-  dailyEditor.setConfig({});
-  dailyEditor.hass = hass;
-
-  for (const [fieldId, expectedValue] of [
-    ["today_entity", "sensor.edf_tempo_today"],
-    ["tomorrow_entity", "sensor.edf_tempo_tomorrow"],
+  for (const [editor, fields] of [
+    [new DailyEditor(), { today_entity: "sensor.edf_tempo_today", tomorrow_entity: "sensor.edf_tempo_tomorrow" }],
+    [new SeasonEditor(), { entity: "sensor.edf_tempo_season_summary" }],
   ]) {
-    const picker = dailyEditor.shadowRoot.querySelector(`#${fieldId}`);
-    assert.strictEqual(picker.hass, hass);
-    assert.equal(picker.value, expectedValue);
-    assert.deepEqual(Array.from(picker.includeDomains), ["sensor"]);
-    assert.equal(picker.allowCustomEntity, true);
+    editor.setConfig({});
+    for (const [id, value] of Object.entries(fields)) {
+      assert.match(editor.shadowRoot.innerHTML, new RegExp('<input id="' + id + '" type="text" list="tempo-sensor-options"'));
+      assert.equal(editor.shadowRoot.querySelector("#" + id).value, value);
+    }
+    assert.doesNotMatch(editor.shadowRoot.innerHTML, /<ha-entity-picker/);
+    editor.hass = { states: {
+      "sensor.renamed": { attributes: { friendly_name: 'Tempo <test> & "name"' } },
+      "light.kitchen": {},
+    } };
+    const options = editor.shadowRoot.querySelector("#tempo-sensor-options").innerHTML;
+    assert.match(options, /value="sensor.renamed"/);
+    assert.match(options, /Tempo &lt;test&gt; &amp; &quot;name&quot;/);
+    assert.doesNotMatch(options, /light.kitchen/);
+    for (const [id, value] of Object.entries(fields)) {
+      assert.equal(editor.shadowRoot.querySelector("#" + id).value, value);
+    }
   }
-  assert.match(dailyEditor.shadowRoot.innerHTML, /<ha-entity-picker id="today_entity">/);
-  assert.match(dailyEditor.shadowRoot.innerHTML, /<ha-entity-picker id="tomorrow_entity">/);
+});
 
-  const seasonEditor = new SeasonEditor();
-  seasonEditor.setConfig({});
-  seasonEditor.hass = hass;
+test("entity input survives state updates and saves on the first edit", () => {
+  const { DailyEditor, SeasonEditor } = loadCardClasses();
+  for (const [Editor, fields] of [
+    [DailyEditor, ["today_entity", "tomorrow_entity"]],
+    [SeasonEditor, ["entity"]],
+  ]) {
+    const editor = new Editor();
+    editor.setConfig({ columns: 2, update_info: "bottom" });
+    editor.hass = { states: {} };
+    let renders = 0;
+    const render = editor._render.bind(editor);
+    editor._render = () => { renders++; render(); };
+    const events = [];
+    editor.dispatchEvent = event => {
+      events.push(event);
+      editor.setConfig(event.detail.config);
+    };
+    for (const id of fields) {
+      const input = editor.shadowRoot.querySelector("#" + id);
+      input.value = "sensor.custom_" + id;
+      editor.hass = { states: { "sensor.new": {} } };
+      assert.equal(input.value, "sensor.custom_" + id);
+      assert.match(editor.shadowRoot.querySelector("#tempo-sensor-options").innerHTML, /sensor.new/);
+      editor.shadowRoot.dispatchEvent({ type: "input", target: input });
+      assert.equal(events.at(-1).detail.config[id], input.value);
+    }
+    assert.equal(events.length, fields.length);
+    assert.equal(renders, 0);
+    if (Editor === DailyEditor) {
+      assert.equal(editor._config.columns, 2);
+      assert.equal(editor._config.update_info, "bottom");
+    }
+  }
+});
 
-  const seasonPicker = seasonEditor.shadowRoot.querySelector("#entity");
-  assert.strictEqual(seasonPicker.hass, hass);
-  assert.equal(seasonPicker.value, "sensor.edf_tempo_season_summary");
-  assert.deepEqual(Array.from(seasonPicker.includeDomains), ["sensor"]);
-  assert.equal(seasonPicker.allowCustomEntity, true);
-  assert.match(seasonEditor.shadowRoot.innerHTML, /<ha-entity-picker id="entity">/);
+test("cleared entity fields stay empty through config echoes and HA updates", () => {
+  const { DailyEditor, SeasonEditor } = loadCardClasses();
+  for (const [Editor, fields] of [
+    [DailyEditor, ["today_entity", "tomorrow_entity"]],
+    [SeasonEditor, ["entity"]],
+  ]) {
+    const editor = new Editor();
+    editor.setConfig({});
+    editor.hass = { states: {} };
+    let latest;
+    editor.dispatchEvent = event => {
+      latest = event.detail.config;
+      editor.setConfig(latest);
+      editor.hass = { states: {} };
+    };
+    for (const id of fields) {
+      const input = editor.shadowRoot.querySelector("#" + id);
+      assert.match(input.value, /^sensor.edf_tempo_/);
+      input.value = "";
+      editor.shadowRoot.dispatchEvent({ type: "input", target: input });
+      assert.equal(latest[id], "");
+      assert.equal(editor._config[id], "");
+      assert.equal(editor.shadowRoot.querySelector("#" + id).value, "");
+      // An unrelated configuration change must also preserve the cleared field.
+      editor.setConfig({ ...latest, title: "Changed title" });
+      assert.equal(editor.shadowRoot.querySelector("#" + id).value, "");
+      input.value = "sensor.replacement";
+      editor.shadowRoot.dispatchEvent({ type: "input", target: input });
+      assert.equal(latest[id], "sensor.replacement");
+      assert.equal(editor._config[id], "sensor.replacement");
+    }
+  }
+});
+
+test("editor factories share HA picker loading before assigning its properties", async () => {
+  let loads = 0;
+  const pending = deferredRequest();
+  const classes = loadCardClasses("fr-FR", { loadCardHelpers: async () => {
+    loads++;
+    return { createCardElement: config => {
+      assert.equal(config.type, "entities");
+      return { constructor: { getConfigElement: async () => {
+        await pending.promise;
+        classes.registeredElements.set("ha-entity-picker", class {});
+      } } };
+    } };
+  } });
+  const daily = classes.DailyCard.getConfigElement();
+  const season = classes.SeasonCard.getConfigElement();
+  assert.equal(loads, 1);
+  pending.resolve();
+  for (const [editor, ids] of [
+    [await daily, ["today_entity", "tomorrow_entity"]],
+    [await season, ["entity"]],
+  ]) {
+    editor.setConfig({});
+    const hass = { states: {} };
+    editor.hass = hass;
+    editor.dispatchEvent = event => editor.setConfig(event.detail.config);
+    for (const id of ids) {
+      assert.match(editor.shadowRoot.innerHTML, new RegExp('<ha-entity-picker id="' + id + '">'));
+      const picker = editor.shadowRoot.querySelector("#" + id);
+      assert.equal(picker.hass, editor._hass);
+      assert.deepEqual(Array.from(picker.includeDomains), ["sensor"]);
+      assert.equal(picker.allowCustomEntity, true);
+      assert.match(picker.value, /^sensor.edf_tempo_/);
+      editor.shadowRoot.dispatchEvent({ type: "value-changed", target: picker, detail: { value: "" } });
+      editor.hass = { states: {} };
+      assert.equal(editor._config[id], "");
+      editor.shadowRoot.dispatchEvent({ type: "value-changed", target: picker, detail: { value: "sensor.selected" } });
+      assert.equal(editor._config[id], "sensor.selected");
+    }
+  }
+  await classes.DailyCard.getConfigElement();
+  assert.equal(loads, 1);
+});
+
+test("failed picker loading uses editable fallback and can be retried", async () => {
+  let loads = 0;
+  const classes = loadCardClasses("fr-FR", { loadCardHelpers: async () => {
+    if (++loads === 1) throw new Error("Simulated frontend load failure");
+    return { createCardElement: () => ({ constructor: { getConfigElement: async () => {
+      classes.registeredElements.set("ha-entity-picker", class {});
+    } } }) };
+  } });
+  const fallback = await classes.DailyCard.getConfigElement();
+  fallback.setConfig({});
+  assert.match(fallback.shadowRoot.innerHTML, /<input id="today_entity"/);
+  const retry = await classes.DailyCard.getConfigElement();
+  retry.setConfig({});
+  assert.match(retry.shadowRoot.innerHTML, /<ha-entity-picker id="today_entity"/);
+  assert.equal(loads, 2);
 });
 
 test("calendar card editors do not expose irrelevant entity fields", () => {

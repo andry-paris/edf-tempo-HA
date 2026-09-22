@@ -243,7 +243,7 @@ async def test_install_reload_reauth_uninstall(hass: HomeAssistant) -> None:
             _mock_first_refresh,
         ),
         patch(
-            "custom_components.edf_tempo.config_flow.EdfTempoClient.async_validate_credentials",
+            "custom_components.edf_tempo.config_flow.EdfTempoClient.async_validate_access",
             new=AsyncMock(return_value=None),
         ),
         patch("custom_components.edf_tempo.sensor.datetime", _FrozenDateTime),
@@ -386,7 +386,7 @@ async def test_reconfigure_hides_and_preserves_blank_secret(
             _mock_first_refresh,
         ),
         patch(
-            "custom_components.edf_tempo.config_flow.EdfTempoClient.async_validate_credentials",
+            "custom_components.edf_tempo.config_flow.EdfTempoClient.async_validate_access",
             new=AsyncMock(return_value=None),
         ),
     ):

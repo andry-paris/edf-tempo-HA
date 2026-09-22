@@ -95,6 +95,24 @@ les dates et les couleurs alignées lorsque l’un des libellés passe sur plusi
 |---|---|
 | ![Carte EDF Tempo pour aujourd’hui et demain avec le thème Home Assistant](docs/screenshots/Carte-EDF%20Tempo-26-27-Juillet-2026-HA-Theme.png) | ![Carte EDF Tempo pour aujourd’hui et demain avec le thème Frosted](docs/screenshots/Carte-EDF%20Tempo-26-27-Juillet-2026-Frosted-Theme.png) |
 
+#### Demain uniquement — avec horodatage
+
+| Thème Home Assistant | Thème Frosted |
+|---|---|
+| ![Carte EDF Tempo : demain uniquement avec horodatage, thème Home Assistant](docs/screenshots/Carte-EDF%20Tempo-Demain-23-Septembre-2026-HA-Theme.png) | ![Carte EDF Tempo : demain uniquement avec horodatage, thème Frosted](docs/screenshots/Carte-EDF%20Tempo-Demain-23-Septembre-2026-Frosted-Theme.png) |
+
+#### Aujourd’hui et demain — deux colonnes avec horodatage
+
+| Thème Home Assistant | Thème Frosted |
+|---|---|
+| ![Carte EDF Tempo : aujourd’hui et demain sur deux colonnes avec horodatage, thème Home Assistant](docs/screenshots/Carte-EDF%20Tempo-22-23-Septembre-2026-HA-Theme.png) | ![Carte EDF Tempo : aujourd’hui et demain sur deux colonnes avec horodatage, thème Frosted](docs/screenshots/Carte-EDF%20Tempo-22-23-Septembre-2026-Frosted-Theme.png) |
+
+#### Aujourd’hui et demain — une colonne avec horodatage
+
+| Thème Home Assistant | Thème Frosted |
+|---|---|
+| ![Carte EDF Tempo : aujourd’hui et demain sur une colonne avec horodatage, thème Home Assistant](docs/screenshots/Carte-EDF%20Tempo-Demain-1Col-23-Septembre-2026-HA-Theme.png) | ![Carte EDF Tempo : aujourd’hui et demain sur une colonne avec horodatage, thème Frosted](docs/screenshots/Carte-EDF%20Tempo-Demain-1Col-23-Septembre-2026-Frosted-Theme.png) |
+
 ### Calendrier mensuel
 
 | Juillet — thème Home Assistant | Juillet — thème Frosted |
@@ -170,6 +188,11 @@ Après le redémarrage :
 2. Sélectionnez **Ajouter une intégration**.
 3. Recherchez **EDF Tempo**.
 4. Saisissez votre "ID Client" et votre "ID Secret" fournis par RTE lors de votre souscription à l'API Tempo.
+
+Lors de l’installation, de la reconfiguration ou de la réauthentification, l’intégration vérifie
+les identifiants OAuth2 **et l’accès effectif aux données Tempo**. Si l’API refuse l’accès, le
+message invite à vérifier les droits de l’application RTE et sa souscription à l’API Tempo.
+Une couleur de demain pas encore publiée n’empêche pas la configuration.
 
 ## Ajouter les cartes visuelles
 

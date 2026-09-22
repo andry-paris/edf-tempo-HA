@@ -15,7 +15,7 @@ from homeassistant.helpers.selector import (
     TextSelectorType,
 )
 
-from .api import EdfTempoApiError, EdfTempoAuthError, EdfTempoClient
+from .api import EdfTempoAccessError, EdfTempoApiError, EdfTempoAuthError, EdfTempoClient
 from .const import CONF_CLIENT_ID, CONF_CLIENT_SECRET, DEFAULT_NAME, DOMAIN
 
 
@@ -142,7 +142,9 @@ class EdfTempoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
         try:
-            await client.async_validate_credentials()
+            await client.async_validate_access()
+        except EdfTempoAccessError:
+            return {"base": "access_denied"}
         except EdfTempoAuthError:
             return {"base": "invalid_auth"}
         except EdfTempoApiError:

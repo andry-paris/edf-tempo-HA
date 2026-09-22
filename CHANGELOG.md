@@ -2,19 +2,17 @@
 
 Ce fichier présente les évolutions notables d’EDF Tempo pour Home Assistant.
 
-Les versions `1.2.3` et `1.2.4` ne figurent pas dans l’historique Git disponible sous la forme de
-versions identifiables. Elles ne sont donc pas reconstituées artificiellement dans ce journal.
-
 ## Non publié
 
 ### Corrigé
 
+- Limitation des erreurs HTTP journalisées au statut de réponse pour protéger le contenu
+  retourné par les services externes.
+
 - Conservation des champs d’entités vides pendant la saisie, sans rétablissement immédiat de
   leur valeur par défaut lorsque le dernier caractère est effacé.
-
 - Chargement préalable du sélecteur Home Assistant dans les éditeurs Aujourd’hui / Demain et
   Synthèse de saison, avec saisie et suggestions de secours si le chargement échoue.
-
 - Mutualisation du téléchargement d’une saison absente du cache lorsque plusieurs cartes la
   demandent simultanément, pour éviter les appels RTE en double.
 - Conservation du choix d’affichage des horodatages dès la première sélection, sans reconstruire
@@ -27,6 +25,8 @@ versions identifiables. Elles ne sont donc pas reconstituées artificiellement d
 
 ### Ajouté
 
+- Vérification de l’accès aux données Tempo après l’authentification lors de la configuration,
+  reconfiguration et réauthentification, avec un message dédié en cas d’accès refusé.
 - Blueprint d’alerte pour la couleur du lendemain, disponible en français et en anglais, avec
   couleurs et actions configurables et limitation à une exécution automatique par jour.
 - Choix des jours affichés dans la carte EDF Tempo : aujourd’hui, demain ou les deux. Un seul

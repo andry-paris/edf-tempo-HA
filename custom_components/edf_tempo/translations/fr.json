@@ -31,7 +31,8 @@
       "already_configured": "EDF Tempo est déjà configuré",
       "cannot_connect": "Impossible de se connecter à l'API EDF Tempo",
       "invalid_auth": "Identifiant client ou secret client invalide",
-      "unknown": "Erreur inattendue"
+      "unknown": "Erreur inattendue",
+      "access_denied": "Accès à l’API Tempo refusé. Vérifiez les droits de votre application RTE et la souscription à l'API Tempo."
     },
     "abort": {
       "already_configured": "EDF Tempo est déjà configuré",

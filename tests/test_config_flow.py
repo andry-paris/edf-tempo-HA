@@ -10,7 +10,7 @@ from tests._ha_stubs import install
 
 install()
 
-from custom_components.edf_tempo.api import EdfTempoApiError, EdfTempoAuthError
+from custom_components.edf_tempo.api import EdfTempoAccessError, EdfTempoApiError, EdfTempoAuthError
 from custom_components.edf_tempo.config_flow import (
     CLIENT_SECRET_SELECTOR,
     CONF_CLIENT_ID,
@@ -44,7 +44,7 @@ class EdfTempoConfigFlowTests(unittest.TestCase):
     def test_validate_input_returns_invalid_auth(self) -> None:
         """Auth errors should map to invalid_auth."""
         with patch(
-            "custom_components.edf_tempo.config_flow.EdfTempoClient.async_validate_credentials",
+            "custom_components.edf_tempo.config_flow.EdfTempoClient.async_validate_access",
             new=AsyncMock(side_effect=EdfTempoAuthError("bad creds")),
         ):
             result = asyncio.run(
@@ -54,6 +54,27 @@ class EdfTempoConfigFlowTests(unittest.TestCase):
             )
 
         self.assertEqual(result, {"base": "invalid_auth"})
+
+    def test_validate_input_distinguishes_tempo_access_denied(self) -> None:
+        with patch(
+            "custom_components.edf_tempo.config_flow.EdfTempoClient.async_validate_access",
+            new=AsyncMock(side_effect=EdfTempoAccessError("forbidden")),
+        ):
+            result = asyncio.run(self.flow._async_validate_input(
+                {CONF_CLIENT_ID: "id", CONF_CLIENT_SECRET: "secret"}
+            ))
+        self.assertEqual(result, {"base": "access_denied"})
+
+    def test_unexpected_failure_uses_generic_error(self) -> None:
+        """Unexpected exceptions must not be misreported as invalid credentials."""
+        with patch(
+            "custom_components.edf_tempo.config_flow.EdfTempoClient.async_validate_access",
+            new=AsyncMock(side_effect=RuntimeError("unexpected")),
+        ):
+            result = asyncio.run(self.flow._async_validate_input(
+                {CONF_CLIENT_ID: "id", CONF_CLIENT_SECRET: "secret"}
+            ))
+        self.assertEqual(result, {"base": "unknown"})
 
     def test_client_secret_uses_password_selector(self) -> None:
         """Secret fields should be rendered as current-password inputs."""
@@ -66,7 +87,7 @@ class EdfTempoConfigFlowTests(unittest.TestCase):
     def test_validate_input_returns_cannot_connect(self) -> None:
         """API errors should map to cannot_connect."""
         with patch(
-            "custom_components.edf_tempo.config_flow.EdfTempoClient.async_validate_credentials",
+            "custom_components.edf_tempo.config_flow.EdfTempoClient.async_validate_access",
             new=AsyncMock(side_effect=EdfTempoApiError("api down")),
         ):
             result = asyncio.run(

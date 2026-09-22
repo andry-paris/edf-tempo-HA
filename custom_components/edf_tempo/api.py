@@ -33,6 +33,10 @@ class EdfTempoAuthError(EdfTempoError):
     """Raised when authentication with the EDF Tempo API fails."""
 
 
+class EdfTempoAccessError(EdfTempoAuthError):
+    """Raised when the Tempo endpoint denies access (HTTP 403)."""
+
+
 class EdfTempoApiError(EdfTempoError):
     """Raised when the EDF Tempo API returns an unexpected response."""
 
@@ -100,6 +104,11 @@ class EdfTempoClient:
     async def async_validate_credentials(self) -> None:
         """Validate credentials by retrieving an access token."""
         await self._async_get_access_token(force_refresh=True)
+
+    async def async_validate_access(self) -> None:
+        """Validate credentials and Tempo access before saving configuration."""
+        await self.async_validate_credentials()
+        await self.async_get_tempo_days()
 
     async def async_get_tempo_days(self) -> TempoDayWindowData:
         """Fetch today and tomorrow Tempo colors."""
@@ -222,9 +231,8 @@ class EdfTempoClient:
                     raise EdfTempoAuthError("Authentication failed")
 
                 if response.status >= 400:
-                    body = await response.text()
                     raise EdfTempoApiError(
-                        f"Token request failed with status {response.status}: {body}"
+                        f"Token request failed with status {response.status}"
                     )
 
                 try:
@@ -288,12 +296,13 @@ class EdfTempoClient:
                             params=params,
                             retry_on_auth_error=False,
                         )
+                    if response.status == 403:
+                        raise EdfTempoAccessError("Tempo API access denied")
                     raise EdfTempoAuthError("Authentication failed")
 
                 if response.status >= 400:
-                    body = await response.text()
                     raise EdfTempoApiError(
-                        f"API request failed with status {response.status}: {body}"
+                        f"API request failed with status {response.status}"
                     )
 
                 try:

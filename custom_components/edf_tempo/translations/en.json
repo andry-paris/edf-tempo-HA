@@ -31,7 +31,8 @@
       "already_configured": "EDF Tempo is already configured",
       "cannot_connect": "Unable to connect to the EDF Tempo API",
       "invalid_auth": "Invalid client ID or client secret",
-      "unknown": "Unexpected error"
+      "unknown": "Unexpected error",
+      "access_denied": "Access to the Tempo API was denied. Check your RTE application's permissions and Tempo API subscription."
     },
     "abort": {
       "already_configured": "EDF Tempo is already configured",

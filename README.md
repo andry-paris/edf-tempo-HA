@@ -1,6 +1,6 @@
 # EDF Tempo pour Home Assistant
 
-[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5?logo=homeassistantcommunitystore&logoColor=white)](https://github.com/hacs/integration)
+[![Open your Home Assistant instance and open a repository inside HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=andry-paris&repository=edf-tempo-HA&category=integration)
 [![Home Assistant 2025.1+](https://img.shields.io/badge/Home%20Assistant-2025.1%2B-18BCF2?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![GitHub release](https://img.shields.io/github/v/release/andry-paris/edf-tempo-HA?logo=github)](https://github.com/andry-paris/edf-tempo-HA/releases/latest)
 [![Licence Apache 2.0](https://img.shields.io/github/license/andry-paris/edf-tempo-HA?logo=apache&logoColor=white)](LICENSE)
@@ -171,13 +171,12 @@ Pour obtenir gratuitement ces identifiants :
 
 ## Installation avec HACS
 
-Tant que l’intégration n’est pas présente dans le catalogue HACS par défaut :
+EDF Tempo est disponible dans le catalogue HACS par défaut. Aucun ajout de dépôt personnalisé n’est nécessaire.
 
 1. Ouvrez **HACS** dans Home Assistant.
-2. Sélectionnez **Dépôts personnalisés** dans le menu.
-3. Ajoutez `https://github.com/andry-paris/edf-tempo-HA` dans la catégorie **Intégration**.
-4. Recherchez puis installez **EDF Tempo**.
-5. Redémarrez Home Assistant.
+2. Recherchez **EDF Tempo** ou utilisez le bouton HACS en haut de cette page pour ouvrir directement sa fiche.
+3. Téléchargez l’intégration.
+4. Redémarrez Home Assistant.
 
 
 ## Première configuration

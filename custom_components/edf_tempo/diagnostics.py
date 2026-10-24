@@ -75,18 +75,23 @@ def _serialize_coordinator_data(data: Any) -> Any:
             "fallback": data.tomorrow.fallback,
             "updated_date": data.tomorrow.updated_date,
         },
-        "season_summary": {
-            "season_start": data.season_summary.season_start,
-            "season_end": data.season_summary.season_end,
-            "total_placed": data.season_summary.total_placed,
-            "blue_days": data.season_summary.blue_days,
-            "white_days": data.season_summary.white_days,
-            "red_days": data.season_summary.red_days,
-            "blue_total": data.season_summary.blue_total,
-            "white_total": data.season_summary.white_total,
-            "red_total": data.season_summary.red_total,
-        },
+        "season_summary": (
+            {
+                "season_start": data.season_summary.season_start,
+                "season_end": data.season_summary.season_end,
+                "total_placed": data.season_summary.total_placed,
+                "blue_days": data.season_summary.blue_days,
+                "white_days": data.season_summary.white_days,
+                "red_days": data.season_summary.red_days,
+                "blue_total": data.season_summary.blue_total,
+                "white_total": data.season_summary.white_total,
+                "red_total": data.season_summary.red_total,
+            }
+            if data.season_summary is not None
+            else None
+        ),
         "fetched_at": data.fetched_at,
+        "summary_updated_at": data.summary_updated_at,
     }
 
 

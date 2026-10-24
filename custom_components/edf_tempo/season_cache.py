@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from datetime import date
+from datetime import date, datetime, timedelta
 import logging
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
-from .api import TempoDayData, TempoSeasonSummaryData
-from .const import DOMAIN
+from .api import COLOR_LABELS, TempoCalendarData, TempoDayData, TempoSeasonSummaryData
+from .const import DOMAIN, PARIS_TIME_ZONE
 
 STORAGE_VERSION = 1
 STORAGE_KEY = f"{DOMAIN}_season_cache"
@@ -23,6 +23,7 @@ class TempoSeasonCacheEntry:
 
     summary: TempoSeasonSummaryData
     day_colors: dict[str, str]
+    updated_at: str | None = None
 
 
 class EdfTempoSeasonCache:
@@ -70,11 +71,38 @@ class EdfTempoSeasonCache:
         """Return a cached season entry."""
         return _deserialize_entry(season_start, self._data.get(season_start))
 
+    def calendar_for(self, today: date) -> TempoCalendarData | None:
+        """Build a dated offline snapshot from the current season cache."""
+        start_year = today.year if today.month >= 9 else today.year - 1
+        entry = self.get(f"{start_year}-09-01")
+        if entry is None:
+            return None
+
+        def cached_day(day: date) -> TempoDayData:
+            key = day.isoformat()
+            color = entry.day_colors.get(key)
+            return TempoDayData(key, color, COLOR_LABELS.get(color), False, None)
+
+        return TempoCalendarData(
+            today=cached_day(today),
+            tomorrow=cached_day(today + timedelta(days=1)),
+            season_summary=entry.summary,
+            fetched_at="",
+            summary_updated_at=entry.updated_at,
+        )
+
+    async def async_clear(self) -> None:
+        """Clear cached seasons from memory and Home Assistant storage."""
+        self._data.clear()
+        await self._store.async_remove()
+        _LOGGER.debug("Cleared EDF Tempo season cache")
+
     async def async_set(self, entry: TempoSeasonCacheEntry) -> None:
         """Persist a season entry."""
         self._data[entry.summary.season_start] = {
             "summary": asdict(entry.summary),
             "day_colors": entry.day_colors,
+            "updated_at": entry.updated_at,
         }
         await self._store.async_save(self._data)
         _LOGGER.debug(
@@ -114,6 +142,7 @@ class EdfTempoSeasonCache:
         updated_entry = TempoSeasonCacheEntry(
             summary=_build_summary(entry.summary.season_start, entry.summary.season_end, day_colors),
             day_colors=day_colors,
+            updated_at=datetime.now(PARIS_TIME_ZONE).isoformat(),
         )
         await self.async_set(updated_entry)
         _LOGGER.debug(
@@ -137,6 +166,7 @@ def build_cache_entry(
     return TempoSeasonCacheEntry(
         summary=_build_summary(season_start, season_end, normalized_day_colors),
         day_colors=normalized_day_colors,
+        updated_at=datetime.now(PARIS_TIME_ZONE).isoformat(),
     )
 
 
@@ -152,6 +182,17 @@ def _deserialize_entry(
     day_colors_payload = payload.get("day_colors")
     if not isinstance(summary_payload, dict) or not isinstance(day_colors_payload, dict):
         return None
+
+    updated_at = payload.get("updated_at")
+    if updated_at is not None:
+        if not isinstance(updated_at, str):
+            return None
+        try:
+            parsed_updated_at = datetime.fromisoformat(updated_at)
+        except ValueError:
+            return None
+        if parsed_updated_at.tzinfo is None:
+            return None
 
     required_text_fields = ("season_start", "season_end")
     required_number_fields = (
@@ -217,6 +258,7 @@ def _deserialize_entry(
             red_total=summary_payload["red_total"],
         ),
         day_colors=day_colors,
+        updated_at=updated_at,
     )
 
 

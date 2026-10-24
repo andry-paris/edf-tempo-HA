@@ -563,6 +563,60 @@ test("card editors and season content are fully localized in English", () => {
   assert.equal(model.redRow.label, "Red days");
 });
 
+test("season card keeps cached totals and shows their Paris update date", () => {
+  const { SeasonCard } = loadCardClasses("fr-FR");
+  const card = new SeasonCard();
+  const attributes = {
+    season_start: "2026-09-01",
+    season_end: "2027-08-31",
+    blue_days: 2,
+    white_days: 1,
+    red_days: 0,
+    summary_updated_at: "2026-10-24T23:30:00Z",
+  };
+  card._hass = {
+    locale: { language: "fr" },
+    states: { "sensor.edf_tempo_season_summary": { state: "3", attributes } },
+  };
+  card.setConfig({});
+  assert.match(card.shadowRoot.innerHTML, /MAJ le 25-10-2026/);
+  assert.match(card.shadowRoot.innerHTML, /class="stats"/);
+
+  card.hass = {
+    locale: { language: "fr" },
+    states: { "sensor.edf_tempo_season_summary": { state: "3", attributes: { ...attributes, summary_updated_at: null } } },
+  };
+  assert.match(card.shadowRoot.innerHTML, /Date de MAJ inconnue/);
+  assert.match(card.shadowRoot.innerHTML, /class="stats"/);
+
+  card.hass = {
+    locale: { language: "fr" },
+    states: { "sensor.edf_tempo_season_summary": {
+      state: "0",
+      attributes: {
+        season_start: "2026-09-01",
+        season_end: "2027-08-31",
+        blue_days: 0,
+        white_days: 0,
+        red_days: 0,
+        blue_total: 0,
+        white_total: 0,
+        red_total: 0,
+        summary_updated_at: null,
+      },
+    } },
+  };
+  assert.match(card.shadowRoot.innerHTML, /class="stats"/);
+  assert.match(card.shadowRoot.innerHTML, /MAJ inconnue/);
+  assert.equal((card.shadowRoot.innerHTML.match(/class="value-cell">0</g) || []).length, 9);
+
+  card.hass = {
+    locale: { language: "fr" },
+    states: { "sensor.edf_tempo_season_summary": { state: "unknown", attributes: {} } },
+  };
+  assert.doesNotMatch(card.shadowRoot.innerHTML, /class="stats"/);
+});
+
 test("season calendar loads rapid navigation requests per season", async () => {
   const { SeasonCalendarCard } = loadCardClasses();
   const requests = [];

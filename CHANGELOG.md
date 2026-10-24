@@ -7,6 +7,26 @@ Ce fichier présente les évolutions notables d’EDF Tempo pour Home Assistant.
 ### Corrigé
 
 - Ajout de la gestion d'une date de mise à jour RTE dans le futur.
+- Les capteurs restent disponibles pendant les erreurs RTE ou réseau, y compris après minuit et
+  lors d'un redémarrage. Une couleur absente pour la date du capteur s'affiche comme `unknown` ;
+  les données connues sont conservées et une nouvelle tentative est lancée toutes les cinq minutes.
+- Une erreur de récupération ou de sauvegarde de la synthèse n'empêche plus la publication des
+  couleurs quotidiennes. La dernière synthèse connue reste affichée avec sa date de mise à jour
+  lorsqu'elle est connue ;
+  sans synthèse, les compteurs affichent `0`.
+
+### Ajouté
+
+- Action `edf_tempo.clear_cache` pour supprimer le cache local des saisons Tempo.
+- Suppression automatique de ce cache lors du retrait de l’intégration.
+
+### Documentation
+
+- Déplacement du bouton d’installation HACS sous la présentation du projet dans le README.
+
+### Maintenance
+
+- Exclusion du dossier local `Project/` du suivi Git.
 
 ## [1.2.11] — 2026-09-22
 

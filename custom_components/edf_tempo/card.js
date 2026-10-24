@@ -34,8 +34,10 @@ const EDF_TEMPO_CARD_TRANSLATIONS = {
     red_days: "Red days",
     season_entity: "Season summary entity",
     season_summary_title: "Season summary",
+    season_updated_on: "Updated on",
+    season_update_unknown: "Update date unknown",
     season_to: "to",
-    season_unavailable: "Season summary unavailable",
+    season_unavailable: "No season summary known yet",
     title: "Title",
     white_days: "White days",
   },
@@ -66,8 +68,10 @@ const EDF_TEMPO_CARD_TRANSLATIONS = {
     red_days: "Jours rouges",
     season_entity: "Entité de synthèse de la saison",
     season_summary_title: "Synthèse de la saison",
+    season_updated_on: "MAJ le",
+    season_update_unknown: "Date de MAJ inconnue",
     season_to: "au",
-    season_unavailable: "Synthèse de la saison indisponible",
+    season_unavailable: "Aucune synthèse connue pour cette saison",
     title: "Titre",
     white_days: "Jours blancs",
   },
@@ -1239,6 +1243,12 @@ class EdfTempoSeasonCard extends HTMLElement {
           font-weight: 600;
           margin-top: 24px;
         }
+
+        .summary-updated {
+          color: var(--secondary-text-color, #667085);
+          font-size: 0.82rem;
+          margin-top: 20px;
+        }
       </style>
       <ha-card>
         <div class="card">
@@ -1251,7 +1261,8 @@ class EdfTempoSeasonCard extends HTMLElement {
                   ${this._renderSeasonRow(model.blueRow, "blue")}
                   ${this._renderSeasonRow(model.whiteRow, "white")}
                   ${this._renderSeasonRow(model.redRow, "red")}
-                </div>`
+                </div>
+                <div class="summary-updated">${this._escapeHtml(model.updatedLabel)}</div>`
               : `<div class="empty">${this._escapeHtml(model.emptyLabel)}</div>`
           }
         </div>
@@ -1269,6 +1280,19 @@ class EdfTempoSeasonCard extends HTMLElement {
     }
 
     const attrs = entity.attributes || {};
+    if (
+      entity.state === "unavailable" ||
+      entity.state === "unknown" ||
+      ["season_start", "season_end", "blue_days", "white_days", "red_days"].some(
+        (key) => attrs[key] == null,
+      )
+    ) {
+      return {
+        available: false,
+        seasonLabel: `${this._formatSeasonStart(attrs.season_start)} ${edfTempoCardText(this._hass, "season_to")} ${this._formatSeasonEnd(attrs.season_end)}`,
+        emptyLabel: edfTempoCardText(this._hass, "season_unavailable"),
+      };
+    }
     const seasonLabel = `${this._formatSeasonStart(attrs.season_start)} ${edfTempoCardText(
       this._hass,
       "season_to",
@@ -1283,6 +1307,7 @@ class EdfTempoSeasonCard extends HTMLElement {
     return {
       available: true,
       seasonLabel,
+      updatedLabel: this._formatSummaryUpdatedAt(attrs.summary_updated_at),
       blueRow: {
         label: edfTempoCardText(this._hass, "blue_days"),
         left: blueTotal - blueDays,
@@ -1313,6 +1338,21 @@ class EdfTempoSeasonCard extends HTMLElement {
         <div class="value-cell">${this._escapeHtml(row.total)}</div>
       </div>
     `;
+  }
+
+  _formatSummaryUpdatedAt(value) {
+    const timestamp = typeof value === "string" ? Date.parse(value) : NaN;
+    if (!Number.isFinite(timestamp)) {
+      return edfTempoCardText(this._hass, "season_update_unknown");
+    }
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Paris",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).formatToParts(new Date(timestamp));
+    const dateParts = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${edfTempoCardText(this._hass, "season_updated_on")} ${dateParts.day}-${dateParts.month}-${dateParts.year}`;
   }
 
   _formatSeasonStart(value) {

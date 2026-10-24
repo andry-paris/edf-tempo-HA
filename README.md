@@ -1,11 +1,12 @@
 # EDF Tempo pour Home Assistant
 
-[![Open your Home Assistant instance and open a repository inside HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=andry-paris&repository=edf-tempo-HA&category=integration)
 [![Home Assistant 2025.1+](https://img.shields.io/badge/Home%20Assistant-2025.1%2B-18BCF2?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![GitHub release](https://img.shields.io/github/v/release/andry-paris/edf-tempo-HA?logo=github)](https://github.com/andry-paris/edf-tempo-HA/releases/latest)
 [![Licence Apache 2.0](https://img.shields.io/github/license/andry-paris/edf-tempo-HA?logo=apache&logoColor=white)](LICENSE)
 
 Suivez facilement les couleurs **EDF Tempo** dans Home Assistant et anticipez les jours où votre consommation d’électricité mérite une attention particulière.
+
+[![Open your Home Assistant instance and open a repository inside HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=andry-paris&repository=edf-tempo-HA&category=integration)
 
 Consultez le [journal des modifications](CHANGELOG.md) pour retrouver l’historique des évolutions.
 
@@ -83,8 +84,9 @@ récupération réussie par l’intégration. Ces informations sont masquées pa
 utilisez `update_info: top` (sous le titre), `update_info: bottom` (sous les jours) ou
 `update_info: hidden` (masquées). Les dates sont affichées dans le fuseau horaire de Home Assistant,
 sans appel supplémentaire à RTE. Une date absente ou invalide est indiquée comme **Non disponible** ;
-si le capteur Demain devient indisponible, les deux anciens horodatages sont masqués et remplacés
-par cette mention.
+pendant une panne RTE, les capteurs restent disponibles et la dernière récupération réussie
+reste affichée si elle est connue. La date de mise à jour RTE n'est affichée que pour les
+données correspondant à demain ; sinon elle est indiquée comme **Non disponible**.
 Ces informations sont masquées et leur réglage désactivé lorsque seul Aujourd’hui est affiché.
 Le choix précédent est conservé pour le retour à un affichage incluant Demain.
 
@@ -282,6 +284,13 @@ Les couleurs Tempo proviennent de l’API officielle de RTE et sont restituées 
 locale. Dans Home Assistant, l’appareil est donc présenté comme une intégration communautaire et
 son modèle indique explicitement RTE comme source des données. Les données des saisons consultées
 sont conservées localement par Home Assistant afin de réduire les demandes inutiles.
+
+### Vider le cache des saisons
+
+1. Dans Home Assistant, ouvrez **Outils de développement > Actions**.
+2. Recherchez **EDF Tempo : Vider le cache des saisons** (`edf_tempo.clear_cache`).
+3. Exécutez l’action sans paramètre, puis rechargez la page du tableau de bord.
+4. Ouvrez de nouveau une saison dans une carte calendrier pour télécharger ses données fraîches.
 
 ## Limites connues
 

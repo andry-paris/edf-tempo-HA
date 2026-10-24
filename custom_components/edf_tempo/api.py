@@ -58,8 +58,9 @@ class TempoCalendarData:
 
     today: TempoDayData
     tomorrow: TempoDayData
-    season_summary: "TempoSeasonSummaryData"
+    season_summary: "TempoSeasonSummaryData | None"
     fetched_at: str
+    summary_updated_at: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

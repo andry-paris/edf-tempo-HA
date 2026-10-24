@@ -201,6 +201,41 @@ test("tomorrow timestamps are optional, positioned by the editor and use the HA 
   assert.doesNotMatch(card.shadowRoot.innerHTML, /<div class="update-info/);
 });
 
+test("a RTE update timestamp later than retrieval is marked in red", () => {
+  const { DailyCard } = loadCardClasses();
+  const card = new DailyCard();
+  card.setConfig({ update_info: "bottom" });
+  const tomorrow = { state: "blue", attributes: {
+    date: "2026-10-06",
+    updated_date: "2026-10-05T10:20:00+02:00",
+    fetched_at: "2026-10-05T06:45:59.189992+02:00",
+  } };
+  const hass = { locale: { language: "fr" }, config: { time_zone: "Europe/Paris" },
+    states: { "sensor.edf_tempo_tomorrow": tomorrow } };
+
+  card.hass = hass;
+  assert.match(card.shadowRoot.innerHTML,
+    /class="rte-date-future">Demain · Mise à jour RTE : 05\/10\/2026.*10:20<\/div>/);
+  assert.match(card.shadowRoot.innerHTML,
+    /<div class="rte-date-future">Date RTE postérieure à la récupération<\/div>/);
+  assert.match(card.shadowRoot.innerHTML, /Dernière récupération réussie : 05\/10\/2026.*06:45/);
+  assert.match(card.shadowRoot.innerHTML, /\.rte-date-future \{\s*color: var\(--error-color/);
+
+  tomorrow.attributes.fetched_at = "2026-10-05T10:25:00+02:00";
+  card.hass = hass;
+  assert.doesNotMatch(card.shadowRoot.innerHTML, /Date RTE postérieure à la récupération/);
+  assert.doesNotMatch(card.shadowRoot.innerHTML, /class="rte-date-future">Demain/);
+
+  tomorrow.attributes.fetched_at = "invalid";
+  card.hass = hass;
+  assert.doesNotMatch(card.shadowRoot.innerHTML, /Date RTE postérieure à la récupération/);
+
+  tomorrow.state = "unavailable";
+  tomorrow.attributes.fetched_at = "2026-10-05T06:45:59+02:00";
+  card.hass = hass;
+  assert.doesNotMatch(card.shadowRoot.innerHTML, /Date RTE postérieure à la récupération/);
+});
+
 test("daily editor keeps the open selector intact and saves its first selection", () => {
   const { DailyEditor } = loadCardClasses();
   const editor = new DailyEditor();

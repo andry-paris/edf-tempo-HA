@@ -4,6 +4,10 @@ Ce fichier présente les évolutions notables d’EDF Tempo pour Home Assistant.
 
 ## Non publié
 
+### Corrigé
+
+- Ajout de la gestion d'une date de mise à jour RTE dans le futur.
+
 ## [1.2.11] — 2026-09-22
 
 ### Corrigé

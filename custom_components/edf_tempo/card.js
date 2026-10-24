@@ -20,6 +20,7 @@ const EDF_TEMPO_CARD_TRANSLATIONS = {
     update_info_top: "Below the title",
     update_info_bottom: "Below the days",
     rte_updated: "Tomorrow · RTE update",
+    rte_updated_after_fetch: "RTE date is later than retrieval",
     last_fetch: "Last successful retrieval",
     timestamp_unknown: "Not available",
     daily_today_entity: "Today's entity",
@@ -51,6 +52,7 @@ const EDF_TEMPO_CARD_TRANSLATIONS = {
     update_info_top: "Sous le titre",
     update_info_bottom: "Sous les jours",
     rte_updated: "Demain · Mise à jour RTE",
+    rte_updated_after_fetch: "Date RTE postérieure à la récupération",
     last_fetch: "Dernière récupération réussie",
     timestamp_unknown: "Non disponible",
     daily_today_entity: "Entité d'aujourd'hui",
@@ -544,6 +546,10 @@ class EdfTempoCard extends HTMLElement {
         .update-info.top { margin-bottom: 12px; }
         .update-info.bottom { margin-top: 12px; }
 
+        .update-info .rte-date-future {
+          color: var(--error-color, #c62828);
+        }
+
         .header {
           align-items: center;
           display: flex;
@@ -725,8 +731,16 @@ class EdfTempoCard extends HTMLElement {
   _renderUpdateInfo(entity) {
     // Unavailable sensors can retain attributes from an expired daily snapshot.
     const attributes = entity?.state === "unavailable" ? {} : entity?.attributes || {};
+    const updatedAt = Date.parse(attributes.updated_date);
+    const fetchedAt = Date.parse(attributes.fetched_at);
+    // Allow a small clock difference, but never present a later RTE timestamp
+    // as an update that had already happened when the data was retrieved.
+    const rteDateIsFuture = Number.isFinite(updatedAt) && Number.isFinite(fetchedAt)
+      && updatedAt > fetchedAt + 5 * 60 * 1000;
+    const rteDateClass = rteDateIsFuture ? ' class="rte-date-future"' : "";
     return `<div class="update-info ${this._config.update_info}">
-      <div>${edfTempoCardText(this._hass, "rte_updated")} : ${this._escapeHtml(this._formatTimestamp(attributes.updated_date))}</div>
+      <div${rteDateClass}>${edfTempoCardText(this._hass, "rte_updated")} : ${this._escapeHtml(this._formatTimestamp(attributes.updated_date))}</div>
+      ${rteDateIsFuture ? `<div class="rte-date-future">${edfTempoCardText(this._hass, "rte_updated_after_fetch")}</div>` : ""}
       <div>${edfTempoCardText(this._hass, "last_fetch")} : ${this._escapeHtml(this._formatTimestamp(attributes.fetched_at))}</div>
     </div>`;
   }

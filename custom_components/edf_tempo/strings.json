@@ -1,5 +1,11 @@
 {
   "title": "EDF Tempo",
+  "services": {
+    "clear_cache": {
+      "name": "Clear season cache",
+      "description": "Delete locally stored Tempo season results. Calendars fetch their data again when reloaded."
+    }
+  },
   "config": {
     "step": {
       "user": {

@@ -1,5 +1,11 @@
 {
   "title": "EDF Tempo",
+  "services": {
+    "clear_cache": {
+      "name": "Vider le cache des saisons",
+      "description": "Supprime les résultats Tempo conservés localement. Les calendriers récupèrent de nouveau leurs données après rechargement."
+    }
+  },
   "config": {
     "step": {
       "user": {

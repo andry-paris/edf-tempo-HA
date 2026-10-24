@@ -8,7 +8,6 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import (
@@ -16,6 +15,7 @@ from .api import (
     EdfTempoAuthError,
     EdfTempoClient,
     TempoCalendarData,
+    TempoSeasonSummaryData,
 )
 from .const import (
     DOMAIN,
@@ -59,7 +59,7 @@ class EdfTempoDataUpdateCoordinator(DataUpdateCoordinator[TempoCalendarData]):
         self._overnight_baseline: TempoCalendarData | None = None
         self._midday_baseline_date: str | None = None
         self._midday_baseline: TempoCalendarData | None = None
-        self._expired_snapshot_notified = False
+        self._expired_snapshot_notified_for: str | None = None
         self._refresh_started_after_failure = False
 
     async def _async_setup(self) -> None:
@@ -69,7 +69,8 @@ class EdfTempoDataUpdateCoordinator(DataUpdateCoordinator[TempoCalendarData]):
             _LOGGER.debug("EDF Tempo credentials validated successfully")
         except EdfTempoAuthError as err:
             _LOGGER.warning("EDF Tempo authentication failed during coordinator setup")
-            raise ConfigEntryAuthFailed from err
+            self.config_entry.async_start_reauth(self.hass)
+            raise UpdateFailed(f"Unable to authenticate with RTE: {err}") from err
         except EdfTempoApiError as err:
             _LOGGER.warning("EDF Tempo credential validation failed: %s", err)
             raise UpdateFailed(f"Unable to validate credentials: {err}") from err
@@ -84,33 +85,61 @@ class EdfTempoDataUpdateCoordinator(DataUpdateCoordinator[TempoCalendarData]):
         _LOGGER.debug("Refreshing EDF Tempo coordinator data")
         try:
             day_window = await self.client.async_get_tempo_days()
-            season_summary = await self._async_get_current_season_summary(
-                day_window.today,
-                day_window.tomorrow,
-            )
-            data = TempoCalendarData(
-                today=day_window.today,
-                tomorrow=day_window.tomorrow,
-                season_summary=season_summary,
-                fetched_at=datetime.now(PARIS_TIME_ZONE).isoformat(),
-            )
         except EdfTempoAuthError as err:
-            _LOGGER.warning("EDF Tempo authentication failed during data refresh")
-            raise ConfigEntryAuthFailed from err
-        except EdfTempoApiError as err:
-            # Window-based intervals can span several hours; use the initial
-            # five-minute cadence until the API succeeds and recomputes them.
             self.update_interval = API_RETRY_INTERVAL
+            _LOGGER.warning("EDF Tempo authentication failed during data refresh")
+            self.config_entry.async_start_reauth(self.hass)
+            raise UpdateFailed(f"Unable to authenticate with RTE: {err}") from err
+        except EdfTempoApiError as err:
+            self.update_interval = API_RETRY_INTERVAL
+            _LOGGER.warning("EDF Tempo day colors refresh failed: %s", err)
+            raise UpdateFailed(f"Unable to fetch Tempo day colors: {err}") from err
+
+        season_refresh_failed = False
+        try:
+            season_summary = await self._async_get_current_season_summary(
+                day_window.today, day_window.tomorrow
+            )
+        except (EdfTempoApiError, EdfTempoAuthError, OSError) as err:
+            season_refresh_failed = True
+            if isinstance(err, EdfTempoAuthError):
+                self.config_entry.async_start_reauth(self.hass)
+            season_summary = self._last_current_season_summary(previous_data)
             _LOGGER.warning(
-                "EDF Tempo data refresh failed; retrying in %s seconds: %s",
+                "EDF Tempo season summary refresh failed; retrying in %s seconds: %s",
                 int(API_RETRY_INTERVAL.total_seconds()),
                 err,
             )
-            raise UpdateFailed(f"Unable to fetch Tempo data: {err}") from err
+        season_cache = getattr(self, "_season_cache", None)
+        cached_season = (
+            season_cache.get(season_summary.season_start)
+            if season_cache is not None and season_summary is not None
+            else None
+        )
+        if cached_season is not None and cached_season.summary == season_summary:
+            summary_updated_at = cached_season.updated_at
+        elif (
+            previous_data is not None
+            and previous_data.season_summary == season_summary
+        ):
+            summary_updated_at = previous_data.summary_updated_at
+        else:
+            summary_updated_at = None
+        data = TempoCalendarData(
+            today=day_window.today,
+            tomorrow=day_window.tomorrow,
+            season_summary=season_summary,
+            fetched_at=datetime.now(PARIS_TIME_ZONE).isoformat(),
+            summary_updated_at=summary_updated_at,
+        )
 
-        self.update_interval = self._compute_next_update_interval(data, previous_data)
+        if season_refresh_failed:
+            self.update_interval = API_RETRY_INTERVAL
+        else:
+            self.update_interval = self._compute_next_update_interval(data, previous_data)
         _LOGGER.debug(
-            "EDF Tempo data refreshed: today=%s tomorrow=%s next_update_in=%ss",
+            "EDF Tempo day colors refreshed: season_success=%s today=%s tomorrow=%s next_update_in=%ss",
+            not season_refresh_failed,
             data.today.color_code,
             data.tomorrow.color_code,
             int(self.update_interval.total_seconds()),
@@ -118,22 +147,34 @@ class EdfTempoDataUpdateCoordinator(DataUpdateCoordinator[TempoCalendarData]):
 
         return data
 
+    def _last_current_season_summary(
+        self, previous_data: TempoCalendarData | None
+    ) -> TempoSeasonSummaryData | None:
+        """Retain only a summary that belongs to the current season."""
+        season_start = f"{self.current_season_start_year}-09-01"
+        cached = self._season_cache.get(season_start)
+        if cached is not None:
+            return cached.summary
+        previous_summary = previous_data.season_summary if previous_data is not None else None
+        if previous_summary is not None and previous_summary.season_start == season_start:
+            return previous_summary
+        return None
+
     @callback
     def _async_refresh_finished(self) -> None:
-        """Handle snapshot availability after a coordinator refresh."""
+        """Update entities when stale day data crosses a Paris date boundary."""
         if self.last_update_success:
-            self._expired_snapshot_notified = False
+            self._expired_snapshot_notified_for = None
             return
 
+        today_key = datetime.now(PARIS_TIME_ZONE).date().isoformat()
         if (
-            self._expired_snapshot_notified
-            or self.data is None
-            or self.data.today.date
-            == datetime.now(PARIS_TIME_ZONE).date().isoformat()
+            self._expired_snapshot_notified_for == today_key
+            or (self.data is not None and self.data.today.date == today_key)
         ):
             return
 
-        self._expired_snapshot_notified = True
+        self._expired_snapshot_notified_for = today_key
         # Home Assistant notifies listeners itself on the first failure. It
         # skips them after consecutive failures, so only fill that gap here.
         if self._refresh_started_after_failure:

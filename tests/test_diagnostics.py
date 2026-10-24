@@ -53,6 +53,7 @@ class _Coordinator:
                 red_days=5,
             ),
             fetched_at="2026-04-12T10:40:00+02:00",
+            summary_updated_at="2026-04-11T11:00:00+02:00",
         )
 
 
@@ -76,6 +77,23 @@ class EdfTempoDiagnosticsTests(unittest.TestCase):
         self.assertEqual(diagnostics["current_season_start_year"], 2025)
         self.assertEqual(diagnostics["season_cache_keys"], ["2025-09-01"])
         self.assertEqual(diagnostics["data"]["today"]["color_code"], "BLUE")
+        self.assertEqual(diagnostics["data"]["summary_updated_at"], "2026-04-11T11:00:00+02:00")
+
+    def test_diagnostics_accepts_day_data_without_season_summary(self) -> None:
+        """A partial recovery still produces valid diagnostics."""
+        hass = _Hass()
+        coordinator = hass.data[DOMAIN]["entry-1"]
+        coordinator.data = TempoCalendarData(
+            today=coordinator.data.today,
+            tomorrow=coordinator.data.tomorrow,
+            season_summary=None,
+            fetched_at=coordinator.data.fetched_at,
+        )
+
+        diagnostics = asyncio.run(async_get_config_entry_diagnostics(hass, _Entry()))
+
+        self.assertEqual(diagnostics["data"]["today"]["color_code"], "BLUE")
+        self.assertIsNone(diagnostics["data"]["season_summary"])
 
 
 if __name__ == "__main__":

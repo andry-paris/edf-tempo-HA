@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -137,17 +137,21 @@ class EdfTempoSensor(CoordinatorEntity[EdfTempoDataUpdateCoordinator], SensorEnt
 
     @property
     def available(self) -> bool:
-        """Keep the current day's snapshot available during transient failures."""
-        data = self.coordinator.data
-        return (
-            data is not None
-            and data.today.date
-            == datetime.now(PARIS_TIME_ZONE).date().isoformat()
-        )
+        """An API outage does not make the sensor unavailable."""
+        return True
 
     @property
     def native_value(self) -> str | int:
         """Return the current state."""
+        if self.coordinator.data is None:
+            if self.entity_description.value_key in {"today", "tomorrow"}:
+                return "unknown"
+            return "0" if self.entity_description.value_key == "season_summary" else 0
+        if (
+            self.entity_description.value_key not in {"today", "tomorrow"}
+            and self._season_summary is None
+        ):
+            return "0" if self.entity_description.value_key == "season_summary" else 0
         if self.entity_description.value_key == "season_summary":
             return str(self._season_summary.total_placed)
         if self.entity_description.value_key in REMAINING_DAY_FIELDS:
@@ -167,8 +171,18 @@ class EdfTempoSensor(CoordinatorEntity[EdfTempoDataUpdateCoordinator], SensorEnt
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional sensor attributes."""
+        if self.coordinator.data is None:
+            if self.entity_description.value_key in {"today", "tomorrow"}:
+                return {ATTR_DATE: self._day_data.date, ATTR_COLOR_CODE: None}
+            return self._empty_summary_attributes
+        if (
+            self.entity_description.value_key not in {"today", "tomorrow"}
+            and self._season_summary is None
+        ):
+            return self._empty_summary_attributes
         if self.entity_description.value_key == "season_summary":
             return {
+                "summary_updated_at": self.coordinator.data.summary_updated_at,
                 ATTR_SEASON_START: self._season_summary.season_start,
                 ATTR_SEASON_END: self._season_summary.season_end,
                 ATTR_TOTAL_PLACED: self._season_summary.total_placed,
@@ -213,10 +227,51 @@ class EdfTempoSensor(CoordinatorEntity[EdfTempoDataUpdateCoordinator], SensorEnt
 
     @property
     def _day_data(self) -> TempoDayData:
-        """Return the relevant day data."""
-        return getattr(self.coordinator.data, self.entity_description.value_key)
+        """Use a color only when its date matches the displayed day."""
+        today = datetime.now(PARIS_TIME_ZONE).date()
+        target_date = (
+            today
+            if self.entity_description.value_key == "today"
+            else today + timedelta(days=1)
+        )
+        target_key = target_date.isoformat()
+        data = self.coordinator.data
+        if data is None:
+            return TempoDayData(target_key, None, None, False, None)
+        candidates = (
+            (data.today, data.tomorrow)
+            if target_date == today
+            else (data.tomorrow,)
+        )
+        for candidate in candidates:
+            if candidate.date == target_key:
+                return candidate
+        return TempoDayData(target_key, None, None, False, None)
 
     @property
-    def _season_summary(self) -> TempoSeasonSummaryData:
+    def _season_summary(self) -> TempoSeasonSummaryData | None:
         """Return the season summary data."""
         return self.coordinator.data.season_summary
+
+    @property
+    def _empty_summary_attributes(self) -> dict[str, Any]:
+        """Expose zero-valued counters with the current season dates."""
+        today = datetime.now(PARIS_TIME_ZONE).date()
+        start_year = today.year if today.month >= 9 else today.year - 1
+        season_dates = {
+            ATTR_SEASON_START: f"{start_year}-09-01",
+            ATTR_SEASON_END: f"{start_year + 1}-08-31",
+        }
+        if self.entity_description.value_key == "season_summary":
+            return {
+                **season_dates,
+                "summary_updated_at": None,
+                ATTR_TOTAL_PLACED: 0,
+                ATTR_BLUE_DAYS: 0,
+                ATTR_WHITE_DAYS: 0,
+                ATTR_RED_DAYS: 0,
+                ATTR_BLUE_TOTAL: 0,
+                ATTR_WHITE_TOTAL: 0,
+                ATTR_RED_TOTAL: 0,
+            }
+        return {**season_dates, "used_days": 0, "total_days": 0}

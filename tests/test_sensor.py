@@ -21,6 +21,7 @@ from custom_components.edf_tempo.api import (
 from custom_components.edf_tempo.const import PARIS_TIME_ZONE
 from custom_components.edf_tempo.sensor import (
     EdfTempoSensor,
+    REMAINING_DAY_FIELDS,
     SENSORS,
     TEMPO_COLOR_OPTIONS,
 )
@@ -84,8 +85,10 @@ class EdfTempoSensorTests(unittest.TestCase):
     def test_color_codes_are_normalized_to_lowercase(self) -> None:
         """Raw API color codes become canonical lowercase enum states."""
         coordinator = _Coordinator("BLUE", "RED")
-        self.assertEqual(self._sensor("today", coordinator).native_value, "blue")
-        self.assertEqual(self._sensor("tomorrow", coordinator).native_value, "red")
+        _FrozenDateTime.fixed_now = datetime(2026, 7, 26, 12, 0, tzinfo=PARIS_TIME_ZONE)
+        with patch("custom_components.edf_tempo.sensor.datetime", _FrozenDateTime):
+            self.assertEqual(self._sensor("today", coordinator).native_value, "blue")
+            self.assertEqual(self._sensor("tomorrow", coordinator).native_value, "red")
 
     def test_tomorrow_exposes_last_successful_fetch_even_during_failure(self) -> None:
         """The timestamp describes the retained snapshot, not failed attempts."""
@@ -118,8 +121,8 @@ class EdfTempoSensorTests(unittest.TestCase):
         with patch("custom_components.edf_tempo.sensor.datetime", _FrozenDateTime):
             self.assertTrue(self._sensor("today", coordinator).available)
 
-    def test_previous_day_snapshot_becomes_unavailable_after_midnight(self) -> None:
-        """A prolonged failure must not expose yesterday's snapshot as current."""
+    def test_previous_day_tomorrow_becomes_today_after_midnight(self) -> None:
+        """A known color keeps its date when a failure crosses midnight."""
         coordinator = _Coordinator("BLUE", "RED")
         coordinator.last_update_success = False
         _FrozenDateTime.fixed_now = datetime(
@@ -127,10 +130,43 @@ class EdfTempoSensorTests(unittest.TestCase):
         )
 
         with patch("custom_components.edf_tempo.sensor.datetime", _FrozenDateTime):
-            self.assertFalse(self._sensor("today", coordinator).available)
+            today = self._sensor("today", coordinator)
+            tomorrow = self._sensor("tomorrow", coordinator)
+            self.assertTrue(today.available)
+            self.assertEqual(today.native_value, "red")
+            self.assertEqual(today.extra_state_attributes["date"], "2026-07-27")
+            self.assertTrue(tomorrow.available)
+            self.assertEqual(tomorrow.native_value, "unknown")
+            self.assertEqual(tomorrow.extra_state_attributes["date"], "2026-07-28")
+            self.assertIsNone(tomorrow.extra_state_attributes["color_code"])
 
-    def test_sensor_without_an_initial_snapshot_is_unavailable(self) -> None:
-        """No entity is available before the first successful data refresh."""
+    def test_unknown_tomorrow_remains_unknown_after_midnight(self) -> None:
+        """An old color must not appear as today's color after a failure."""
+        coordinator = _Coordinator("BLUE", None)
+        coordinator.last_update_success = False
+        _FrozenDateTime.fixed_now = datetime(2026, 7, 27, 0, 0, tzinfo=PARIS_TIME_ZONE)
+
+        with patch("custom_components.edf_tempo.sensor.datetime", _FrozenDateTime):
+            today = self._sensor("today", coordinator)
+            self.assertTrue(today.available)
+            self.assertEqual(today.native_value, "unknown")
+            self.assertEqual(today.extra_state_attributes["date"], "2026-07-27")
+            self.assertIsNone(today.extra_state_attributes["color_code"])
+            self.assertEqual(self._sensor("season_summary", coordinator).native_value, "365")
+
+        coordinator.data = TempoCalendarData(
+            today=TempoDayData("2026-07-27", "WHITE", None, False, None),
+            tomorrow=TempoDayData("2026-07-28", "RED", None, False, None),
+            season_summary=coordinator.data.season_summary,
+            fetched_at="2026-07-27T00:15:00+02:00",
+        )
+        coordinator.last_update_success = True
+        with patch("custom_components.edf_tempo.sensor.datetime", _FrozenDateTime):
+            self.assertEqual(today.native_value, "white")
+            self.assertEqual(today.extra_state_attributes["color_code"], "WHITE")
+
+    def test_sensor_without_an_initial_snapshot_is_unknown(self) -> None:
+        """A failed first fetch still produces available sensors."""
         coordinator = _Coordinator("BLUE", "RED")
         coordinator.data = None
         coordinator.last_update_success = False
@@ -139,7 +175,24 @@ class EdfTempoSensorTests(unittest.TestCase):
         )
 
         with patch("custom_components.edf_tempo.sensor.datetime", _FrozenDateTime):
-            self.assertFalse(self._sensor("today", coordinator).available)
+            today = self._sensor("today", coordinator)
+            tomorrow = self._sensor("tomorrow", coordinator)
+            summary = self._sensor("season_summary", coordinator)
+            self.assertTrue(today.available)
+            self.assertEqual(today.native_value, "unknown")
+            self.assertEqual(today.extra_state_attributes["date"], "2026-07-26")
+            self.assertTrue(tomorrow.available)
+            self.assertEqual(tomorrow.native_value, "unknown")
+            self.assertEqual(tomorrow.extra_state_attributes["date"], "2026-07-27")
+            self.assertTrue(summary.available)
+            self.assertEqual(summary.native_value, "0")
+            self.assertEqual(summary.extra_state_attributes["blue_days"], 0)
+            self.assertEqual(summary.extra_state_attributes["blue_total"], 0)
+            for key in REMAINING_DAY_FIELDS:
+                remaining = self._sensor(key, coordinator)
+                self.assertTrue(remaining.available)
+                self.assertEqual(remaining.native_value, 0)
+                self.assertEqual(remaining.extra_state_attributes["total_days"], 0)
 
     def test_entity_id_is_suggested_but_not_forced(self) -> None:
         """Home Assistant should use a language-independent suggested entity ID."""
@@ -156,8 +209,46 @@ class EdfTempoSensorTests(unittest.TestCase):
 
     def test_season_summary_remains_numeric(self) -> None:
         """The non-enum season sensor returns its numeric total."""
-        sensor = self._sensor("season_summary", _Coordinator("WHITE", None))
+        coordinator = _Coordinator("WHITE", None)
+        coordinator.data = TempoCalendarData(
+            today=coordinator.data.today,
+            tomorrow=coordinator.data.tomorrow,
+            season_summary=coordinator.data.season_summary,
+            fetched_at=coordinator.data.fetched_at,
+            summary_updated_at="2026-07-25T12:00:00+02:00",
+        )
+        sensor = self._sensor("season_summary", coordinator)
         self.assertEqual(sensor.native_value, "365")
+        self.assertTrue(sensor.available)
+        self.assertEqual(
+            sensor.extra_state_attributes["summary_updated_at"],
+            "2026-07-25T12:00:00+02:00",
+        )
+
+    def test_missing_season_summary_uses_zero_counters(self) -> None:
+        """Day colors and zero-valued season counters coexist during a failure."""
+        coordinator = _Coordinator("BLUE", "RED")
+        coordinator.data = TempoCalendarData(
+            today=coordinator.data.today,
+            tomorrow=coordinator.data.tomorrow,
+            season_summary=None,
+            fetched_at=coordinator.data.fetched_at,
+        )
+        _FrozenDateTime.fixed_now = datetime(2026, 7, 26, 12, 0, tzinfo=PARIS_TIME_ZONE)
+        with patch("custom_components.edf_tempo.sensor.datetime", _FrozenDateTime):
+            self.assertEqual(self._sensor("today", coordinator).native_value, "blue")
+            self.assertEqual(self._sensor("tomorrow", coordinator).native_value, "red")
+            summary = self._sensor("season_summary", coordinator)
+            self.assertEqual(summary.native_value, "0")
+            self.assertEqual(summary.extra_state_attributes["total_placed"], 0)
+            self.assertIsNone(summary.extra_state_attributes["summary_updated_at"])
+            for key in REMAINING_DAY_FIELDS:
+                self.assertEqual(self._sensor(key, coordinator).native_value, 0)
+            for key in ("season_summary", *REMAINING_DAY_FIELDS):
+                sensor = self._sensor(key, coordinator)
+                self.assertTrue(sensor.available)
+                self.assertEqual(sensor.native_value, "0" if key == "season_summary" else 0)
+                self.assertEqual(sensor.extra_state_attributes["season_start"], "2025-09-01")
 
     def test_remaining_day_sensors_use_season_allowances(self) -> None:
         """Remaining sensors subtract placed days from each color allowance."""

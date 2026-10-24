@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import asdict
+from datetime import date
 import unittest
 from unittest.mock import AsyncMock
 
@@ -17,6 +18,25 @@ from custom_components.edf_tempo.season_cache import EdfTempoSeasonCache, build_
 
 class EdfTempoSeasonCacheTests(unittest.TestCase):
     """Validate summary building and cache updates."""
+
+    def test_offline_calendar_uses_only_colors_for_requested_dates(self) -> None:
+        """A restart during an outage must not reuse yesterday's color."""
+        cache = EdfTempoSeasonCache(object())
+        self.assertIsNone(cache.calendar_for(date(2026, 7, 27)))
+        entry = build_cache_entry(
+            "2025-09-01", "2026-08-31", {"2026-07-27": "BLUE"}
+        )
+        asyncio.run(cache.async_set(entry))
+
+        current = cache.calendar_for(date(2026, 7, 27))
+        self.assertEqual(current.today.color_code, "BLUE")
+        self.assertIsNone(current.tomorrow.color_code)
+        self.assertEqual(current.tomorrow.date, "2026-07-28")
+        self.assertEqual(current.season_summary, entry.summary)
+
+        next_day = cache.calendar_for(date(2026, 7, 28))
+        self.assertIsNone(next_day.today.color_code)
+        self.assertEqual(next_day.today.date, "2026-07-28")
 
     def test_build_cache_entry_counts_known_colors_only(self) -> None:
         """Only BLUE/WHITE/RED days should contribute to totals."""
@@ -48,6 +68,7 @@ class EdfTempoSeasonCacheTests(unittest.TestCase):
         valid_payload = {
             "summary": asdict(valid_entry.summary),
             "day_colors": dict(valid_entry.day_colors),
+            "updated_at": valid_entry.updated_at,
         }
         invalid_payloads = {
             "missing_summary_field": {
@@ -82,6 +103,17 @@ class EdfTempoSeasonCacheTests(unittest.TestCase):
         asyncio.run(cache.async_load())
         self.assertEqual(cache.get("2025-09-01"), valid_entry)
 
+        legacy_cache = EdfTempoSeasonCache(object())
+        legacy_cache._store.saved_data = {
+            "2025-09-01": {
+                "summary": valid_payload["summary"],
+                "day_colors": valid_payload["day_colors"],
+            }
+        }
+        asyncio.run(legacy_cache.async_load())
+        self.assertEqual(legacy_cache.get("2025-09-01").summary, valid_entry.summary)
+        self.assertIsNone(legacy_cache.get("2025-09-01").updated_at)
+
         for name, invalid_payload in invalid_payloads.items():
             with self.subTest(name=name):
                 cache = EdfTempoSeasonCache(object())
@@ -108,6 +140,30 @@ class EdfTempoSeasonCacheTests(unittest.TestCase):
         cache._data["2025-09-01"] = {"summary": {}, "day_colors": {}}
 
         self.assertIsNone(cache.get("2025-09-01"))
+
+    def test_async_clear_removes_memory_and_storage(self) -> None:
+        """A cleared season should be absent from both cache layers."""
+        cache = EdfTempoSeasonCache(object())
+        entry = build_cache_entry(
+            "2025-09-01", "2026-08-31", {"2025-09-01": "BLUE"}
+        )
+        asyncio.run(cache.async_set(entry))
+
+        asyncio.run(cache.async_clear())
+
+        self.assertIsNone(cache.get(entry.summary.season_start))
+        self.assertIsNone(cache._store.saved_data)
+
+        asyncio.run(cache.async_clear())
+        self.assertIsNone(cache._store.saved_data)
+
+    def test_async_clear_reports_storage_removal_failure(self) -> None:
+        """A failed storage deletion must not appear to succeed."""
+        cache = EdfTempoSeasonCache(object())
+        cache._store.async_remove = AsyncMock(side_effect=OSError("storage unavailable"))
+
+        with self.assertRaises(OSError):
+            asyncio.run(cache.async_clear())
 
     def test_async_update_current_season_merges_today_and_tomorrow(self) -> None:
         """Fresh day values should update the persisted summary."""
@@ -145,6 +201,8 @@ class EdfTempoSeasonCacheTests(unittest.TestCase):
         self.assertEqual(updated_entry.summary.red_days, 1)
         self.assertEqual(updated_entry.day_colors["2026-04-12"], "WHITE")
         self.assertEqual(updated_entry.day_colors["2026-04-13"], "RED")
+        self.assertIsNotNone(updated_entry.updated_at)
+        self.assertNotEqual(updated_entry.updated_at, entry.updated_at)
 
     def test_async_update_current_season_ignores_out_of_range_day(self) -> None:
         """Days outside the target season should not alter the summary."""

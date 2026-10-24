@@ -63,6 +63,10 @@ def install() -> None:
         def __init__(self, entry_id: str = "test-entry", data=None) -> None:
             self.entry_id = entry_id
             self.data = data or {}
+            self.reauth_requested = False
+
+        def async_start_reauth(self, hass) -> None:
+            self.reauth_requested = True
 
     class ConfigFlow:
         """Stub config flow base class."""
@@ -83,11 +87,15 @@ def install() -> None:
         def __init__(self) -> None:
             self.data = {}
 
+    class ServiceCall:
+        """Stub Home Assistant service call."""
+
     def callback(func):
         """Stub Home Assistant callback decorator."""
         return func
 
     core.HomeAssistant = HomeAssistant
+    core.ServiceCall = ServiceCall
     core.callback = callback
     sys.modules["homeassistant.core"] = core
 
@@ -96,7 +104,11 @@ def install() -> None:
     class ConfigEntryAuthFailed(Exception):
         """Stub auth failure exception."""
 
+    class ConfigEntryNotReady(Exception):
+        """Stub transient setup failure."""
+
     exceptions.ConfigEntryAuthFailed = ConfigEntryAuthFailed
+    exceptions.ConfigEntryNotReady = ConfigEntryNotReady
     sys.modules["homeassistant.exceptions"] = exceptions
 
     helpers = types.ModuleType("homeassistant.helpers")
@@ -216,6 +228,9 @@ def install() -> None:
 
         async def async_save(self, data) -> None:
             self.saved_data = data
+
+        async def async_remove(self) -> None:
+            self.saved_data = None
 
     storage.Store = Store
     sys.modules["homeassistant.helpers.storage"] = storage

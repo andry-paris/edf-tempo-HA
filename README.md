@@ -278,17 +278,6 @@ Avant d’enregistrer cette automatisation :
 
 L’action [`notify.send_message`](https://www.home-assistant.io/actions/notify.send_message/) est recommandée pour les entités de notification récentes. Certaines intégrations plus anciennes fournissent uniquement leur propre action `notify.*` : dans ce cas, sélectionnez l’action proposée par votre appareil dans l’éditeur Home Assistant.
 
-## En cas de panne RTE
-
-Après la configuration de l'intégration, une erreur RTE ou réseau ne rend pas les six capteurs
-indisponibles. Les couleurs déjà connues restent affichées uniquement pour la date à laquelle elles
-correspondent ; sans couleur fiable pour aujourd'hui ou demain, le capteur affiche `unknown`.
-L'intégration retente l'appel toutes les cinq minutes. Si la synthèse de la saison échoue alors que
-les couleurs quotidiennes ont été reçues, celles-ci sont tout de même publiées. La dernière synthèse
-disponible reste affichée avec sa date de mise à jour ; sans synthèse, les compteurs affichent `0`.
-Si l'ancien cache ne contient aucune date de mise à jour vérifiable, la carte indique
-**Date de MAJ inconnue**. Un `0` sans synthèse ne signifie pas que RTE a confirmé zéro jour placé.
-
 ## Données et confidentialité
 
 Les couleurs Tempo proviennent de l’API officielle de RTE et sont restituées sans correction métier
@@ -302,11 +291,6 @@ sont conservées localement par Home Assistant afin de réduire les demandes inu
 2. Recherchez **EDF Tempo : Vider le cache des saisons** (`edf_tempo.clear_cache`).
 3. Exécutez l’action sans paramètre, puis rechargez la page du tableau de bord.
 4. Ouvrez de nouveau une saison dans une carte calendrier pour télécharger ses données fraîches.
-
-L’action efface le cache des saisons en mémoire et sur disque. Elle ne lance pas de récupération
-immédiate et ne modifie pas les valeurs actuelles des capteurs. Un téléchargement de saison déjà
-en cours peut remplir de nouveau le cache après l’action. La suppression de l’intégration efface
-aussi son cache des saisons ; son simple rechargement le conserve.
 
 ## Limites connues
 

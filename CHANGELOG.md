@@ -4,6 +4,8 @@ Ce fichier présente les évolutions notables d’EDF Tempo pour Home Assistant.
 
 ## Non publié
 
+## [1.2.12] — 2026-10-24
+
 ### Corrigé
 
 - Ajout de la gestion d'une date de mise à jour RTE dans le futur.
@@ -158,6 +160,7 @@ Ce fichier présente les évolutions notables d’EDF Tempo pour Home Assistant.
 - Quatre cartes Lovelace pour les vues quotidienne, mensuelle et saisonnière.
 - Diagnostics, traductions française et anglaise, tests et validation HACS.
 
+[1.2.12]: https://github.com/andry-paris/edf-tempo-HA/releases/tag/v1.2.12
 [1.2.11]: https://github.com/andry-paris/edf-tempo-HA/releases/tag/v1.2.11
 [1.2.10]: https://github.com/andry-paris/edf-tempo-HA/releases/tag/v1.2.10
 [1.2.9]: https://github.com/andry-paris/edf-tempo-HA/releases/tag/v1.2.9
